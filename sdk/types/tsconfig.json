@@ -8,7 +8,9 @@
         "declaration": true,
         "outDir": "dist",
         "rootDir": "gen",
-        "strict": true
+        "strict": true,
+        "types": ["node"],
+        "lib": ["es2022", "esnext.disposable", "dom"]
     },
     "include": [
         "gen/**/*"

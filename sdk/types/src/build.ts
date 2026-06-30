@@ -1,4 +1,5 @@
-import fs from "fs";
+/// <reference types="node" />
+import fs from 'fs';
 import path from 'path';
 import { DeclarationReflection, ProjectReflection, ReflectionKind, SomeType } from 'typedoc';
 import { ScryptedInterface, ScryptedInterfaceDescriptor } from "./types.input";

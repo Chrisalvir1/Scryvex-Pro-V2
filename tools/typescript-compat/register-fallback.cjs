@@ -14,3 +14,19 @@ Module._resolveFilename = function (request, parent, isMain, options) {
     }
     return originalResolveFilename.apply(this, arguments);
 };
+
+// Also register an ESM loader so that ESM imports (like typedoc) get intercepted.
+try {
+    const { register } = require('node:module');
+    const loaderCode = `
+export async function resolve(specifier, context, nextResolve) {
+    if (specifier === 'typescript') {
+        return nextResolve('typescript-js', context);
+    }
+    return nextResolve(specifier, context);
+}
+    `;
+    register('data:text/javascript,' + encodeURIComponent(loaderCode));
+} catch (e) {
+    // Ignore if module.register is unavailable or already registered.
+}

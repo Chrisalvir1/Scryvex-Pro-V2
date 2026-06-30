@@ -7,7 +7,7 @@
   "license": "ISC",
   "scripts": {
     "prepublishOnly": "npm run build",
-    "build": "tsc --project src && rimraf dist gen && node -r ../../tools/typescript-compat/register-fallback.cjs --experimental-loader ../../tools/typescript-compat/register-fallback.mjs ../node_modules/.bin/typedoc && tsc ./src/build.ts --module commonjs --target es2020 --esModuleInterop --skipLibCheck --ignoreConfig && node -r ../../tools/typescript-compat/register-fallback.cjs --experimental-loader ../../tools/typescript-compat/register-fallback.mjs ./src/build.js && tsc && rimraf ./src/build.js"
+    "build": "tsc --project src && rimraf dist gen && node -r ../../tools/typescript-compat/register-fallback.cjs ../node_modules/.bin/typedoc && tsc -p tsconfig.build_script.json && node -r ../../tools/typescript-compat/register-fallback.cjs ./src/build.js && tsc && rimraf ./src/build.js"
   },
   "types": "dist/index.d.ts",
   "dependencies": {

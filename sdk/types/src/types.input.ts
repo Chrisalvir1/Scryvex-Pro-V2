@@ -1,3 +1,5 @@
+/// <reference types="node" />
+/// <reference lib="esnext.disposable" />
 import type { ChildProcess as NodeChildProcess } from 'child_process';
 import type { Socket as NodeNetSocket } from 'net';
 import type { ChatCompletionStreamParams as OpenAIChatCompletionStreamParams } from 'openai/lib/ChatCompletionStream';
