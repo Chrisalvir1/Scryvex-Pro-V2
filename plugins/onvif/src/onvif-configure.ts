@@ -1,6 +1,6 @@
 import { MediaStreamConfiguration, MediaStreamOptions, Setting } from "@scrypted/sdk";
 import { autoconfigureCodecs as ac } from '../../../common/src/autoconfigure-codecs';
-import { UrlMediaStreamOptions } from "../../ffmpeg-camera/src/common";
+import { UrlMediaStreamOptions, scoreHomeKitStream } from "../../ffmpeg-camera/src/common";
 import { OnvifCameraAPI } from "./onvif-api";
 
 export function computeInterval(fps: number, govLength: number) {
@@ -180,6 +180,10 @@ export async function getCodecs(console: Console, client: OnvifCameraAPI) {
     const ret: UrlMediaStreamOptions[] = [];
     for (const { $, name, videoEncoderConfiguration, audioEncoderConfiguration } of profiles) {
         try {
+            const rawCodec: string = videoEncoderConfiguration?.encoding;
+            const ffmpegCodec = fromOnvifVideoCodec(rawCodec);
+            const isH264 = ffmpegCodec === 'h264';
+
             ret.push({
                 id: $.token,
                 metadata: {
@@ -189,12 +193,17 @@ export async function getCodecs(console: Console, client: OnvifCameraAPI) {
                 name: name,
                 container: 'rtsp',
                 url: await client.getStreamUrl($.token),
+                // Raw codec preserved so scoring and remux decisions are accurate
+                // even when the normalised codec string may be coerced later.
+                sourceCodec: rawCodec ? rawCodec.toLowerCase() : undefined,
+                // H.264 streams can be forwarded to HomeKit without re-encoding video.
+                directRemux: isH264,
                 video: {
                     fps: videoEncoderConfiguration?.rateControl?.frameRateLimit,
                     bitrate: computeBitrate(videoEncoderConfiguration?.rateControl?.bitrateLimit),
                     width: videoEncoderConfiguration?.resolution?.width,
                     height: videoEncoderConfiguration?.resolution?.height,
-                    codec: fromOnvifVideoCodec(videoEncoderConfiguration?.encoding),
+                    codec: ffmpegCodec,
                     keyframeInterval: videoEncoderConfiguration?.$?.GovLength,
                     bitrateControl: videoEncoderConfiguration?.rateControl?.$?.ConstantBitRate != null
                         ? (videoEncoderConfiguration?.rateControl?.$.ConstantBitRate ? 'constant' : 'variable')
@@ -211,5 +220,24 @@ export async function getCodecs(console: Console, client: OnvifCameraAPI) {
         }
     }
 
+    // Sort profiles by HomeKit compatibility (H.264 first, then by resolution).
+    // The highest-scoring H.264 profile gets flagged as homekitPreferred so
+    // downstream plugins and HomeKit can identify it without re-scoring.
+    ret.sort((a, b) => scoreHomeKitStream(b) - scoreHomeKitStream(a));
+
+    const bestH264 = ret.find(s => s.video?.codec === 'h264' || s.sourceCodec?.includes('h264'));
+    if (bestH264) {
+        bestH264.homekitPreferred = true;
+        console.log(`[onvif] HomeKit preferred stream: ${bestH264.name} (${bestH264.video?.codec}, ${bestH264.video?.width}x${bestH264.video?.height})`);
+    } else {
+        // No H.264 profile found; mark the best available stream so HomeKit
+        // can at least attempt delivery (with fallback transcoding if needed).
+        if (ret[0]) {
+            ret[0].homekitPreferred = true;
+            console.warn(`[onvif] No H.264 profile found. Marking ${ret[0].name} (${ret[0].video?.codec}) as HomeKit preferred — transcoding may be required.`);
+        }
+    }
+
     return ret;
 }
+

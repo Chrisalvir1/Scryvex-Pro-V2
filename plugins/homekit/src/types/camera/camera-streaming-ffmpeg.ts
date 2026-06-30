@@ -37,6 +37,7 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
         transcodingDebugModeWarning();
 
     const videoCodec = ffmpegInput.mediaStreamOptions?.video?.codec;
+    const sourceDirectRemux = (ffmpegInput.mediaStreamOptions as any)?.directRemux;
     const needsFFmpeg = debugMode.video
         || ffmpegInput.container !== 'rtsp';
 
@@ -59,13 +60,20 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
             '-g', `${4 * request.video.fps}`,
             "-r", request.video.fps.toString(),
         );
+        console.log(`[remux] video: FULL TRANSCODE (debug mode) codec=${videoCodec}`);
     }
     else {
-        checkCompatibleCodec(console, device, videoCodec)
+        checkCompatibleCodec(console, device, videoCodec);
 
         videoArgs.push(
             "-vcodec", "copy",
         );
+        // Log clearly whether this is a blessed direct remux or an opportunistic copy.
+        if (sourceDirectRemux) {
+            console.log(`[remux] video: direct remux (directRemux=true, codec=${videoCodec})`);
+        } else {
+            console.log(`[remux] video: stream copy (codec=${videoCodec}, container=${ffmpegInput.container})`);
+        }
     }
 
     // this test path is to force forwarding of packets through the correct port expected by HAP
@@ -142,6 +150,16 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
     let opusFramesPerPacket = request.audio.packet_time / 20;
 
     const noAudio = mso?.audio === null;
+    // ── Audio codec source information ───────────────────────────────────────
+    // The source audio codec is carried in mediaStreamOptions.audio.codec after
+    // negotiation by the prebuffer/rebroadcast layer.
+    const sourceAudioCodec = (mso?.audio?.codec || '').toLowerCase();
+    // Opus audio arriving from a managed prebuffer can be forwarded directly
+    // without re-encoding, as long as HomeKit also requested opus and debug
+    // audio transcoding is not enabled.
+    const sourceIsOpus = sourceAudioCodec === 'opus';
+    // ─────────────────────────────────────────────────────────────────────────
+
     if (noAudio) {
         // no op...
     }
@@ -150,6 +168,20 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
         // which we will respect by simply outputing frames of that duration, rather than packing
         // 20 ms frames to accomodate.
         // the opus repacketizer will pass through those N frame packets as is.
+
+        // ── Audio passthrough (remux-first) ─────────────────────────────────
+        // If the source is already opus and HomeKit requested opus, use the
+        // codecCopy='opus' path so rtp-forwarders.ts skips the encoder entirely.
+        // This avoids a decode→encode round-trip and saves CPU on RPi 5.
+        const useAudioPassthrough = !debugMode.audio && requestedOpus && sourceIsOpus;
+        if (useAudioPassthrough) {
+            console.log(`[remux] audio: passthrough (source=opus, target=opus, no transcode)`);
+        } else if (requestedOpus) {
+            console.log(`[remux] audio: transcode → opus (source=${sourceAudioCodec || 'unknown'})`);
+        } else {
+            console.log(`[remux] audio: transcode → aac-eld (source=${sourceAudioCodec || 'unknown'})`);
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         audioArgs.push(
             '-acodec', ...(requestedOpus ?
@@ -199,6 +231,8 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
         }
 
         audio = {
+            // Use 'opus' codecCopy when source is already opus (passthrough),
+            // otherwise fall through to the standard transcode path.
             codecCopy: !debugMode.audio && requestedOpus ? 'opus' : 'transcode',
             encoderArguments: audioArgs,
             ffmpegDestination,

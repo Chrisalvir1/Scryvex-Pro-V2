@@ -3,20 +3,58 @@ import sdk, { MediaObject, MediaStreamUrl, PictureOptions, RequestPictureOptions
 import url from 'url';
 import { CameraBase, CameraProviderBase, UrlMediaStreamOptions } from "../../ffmpeg-camera/src/common";
 
-export { UrlMediaStreamOptions } from "../../ffmpeg-camera/src/common";
+export { UrlMediaStreamOptions, scoreHomeKitStream } from "../../ffmpeg-camera/src/common";
+import { scoreHomeKitStream } from "../../ffmpeg-camera/src/common";
 
-export function createRtspMediaStreamOptions(url: string, index: number): UrlMediaStreamOptions {
-    return {
+export interface RtspMediaStreamMetadata {
+    videoCodec?: string;
+    audioCodec?: string;
+    width?: number;
+    height?: number;
+    fps?: number;
+    bitrate?: number;
+    homekitPreferred?: boolean;
+    directRemux?: boolean;
+}
+
+export function createRtspMediaStreamOptions(
+    url: string,
+    index: number,
+    metadata?: RtspMediaStreamMetadata,
+): UrlMediaStreamOptions {
+    const vso: UrlMediaStreamOptions = {
         id: `channel${index}`,
         name: `Stream ${index + 1}`,
         url,
         container: 'rtsp',
-        video: {
-        },
-        audio: {
-
-        },
+        video: {},
+        audio: {},
     };
+
+    if (metadata) {
+        if (metadata.videoCodec) {
+            vso.video.codec = metadata.videoCodec;
+            // Mirror the raw codec so scoring and remux decisions remain accurate
+            // even if a caller normalises the codec string later.
+            vso.sourceCodec = metadata.videoCodec;
+        }
+        if (metadata.audioCodec)
+            vso.audio.codec = metadata.audioCodec;
+        if (metadata.width)
+            vso.video.width = metadata.width;
+        if (metadata.height)
+            vso.video.height = metadata.height;
+        if (metadata.fps)
+            vso.video.fps = metadata.fps;
+        if (metadata.bitrate)
+            vso.video.bitrate = metadata.bitrate;
+        if (metadata.homekitPreferred != null)
+            vso.homekitPreferred = metadata.homekitPreferred;
+        if (metadata.directRemux != null)
+            vso.directRemux = metadata.directRemux;
+    }
+
+    return vso;
 }
 export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
     takePicture(option?: PictureOptions): Promise<MediaObject> {
@@ -43,6 +81,37 @@ export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
         if (!ret.length)
             return undefined as any;
         return ret;
+    }
+
+    /**
+     * Override: prefer the explicitly configured defaultStream; if none, use
+     * HomeKit-compatibility scoring to pick the best available stream.
+     * Falls back to the first stream so single-stream cameras are unaffected.
+     */
+    getDefaultStream(vsos: UrlMediaStreamOptions[]): UrlMediaStreamOptions | undefined {
+        if (!vsos?.length)
+            return undefined;
+
+        // Respect explicit user preference stored by putSettingBase.
+        const storedId = this.storage.getItem('defaultStream');
+        if (storedId) {
+            const explicit = vsos.find(s => s.id === storedId);
+            if (explicit)
+                return explicit;
+        }
+
+        // No explicit preference — score all streams and pick the highest.
+        // If all scores are equal (e.g. no metadata yet) we fall back to the
+        // first stream, preserving existing behaviour.
+        const scored = vsos
+            .map(s => ({ s, score: scoreHomeKitStream(s) }))
+            .sort((a, b) => b.score - a.score);
+
+        const best = scored[0];
+        if (best.score > 0)
+            return best.s;
+
+        return vsos[0];
     }
 
     addRtspCredentials(rtspUrl: string) {

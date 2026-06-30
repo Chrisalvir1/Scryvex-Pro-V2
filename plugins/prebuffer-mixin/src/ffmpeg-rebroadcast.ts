@@ -267,6 +267,27 @@ export async function startParserSession<T extends string>(ffmpegInput: FFmpegIn
                 }
             }
 
+            // ── Remux-first diagnostics ──────────────────────────────────────────
+            // Determine at negotiation time what codec path this session will take
+            // so that downstream HomeKit selection can log clearly.
+            const requestedVideoCodec = requestMediaStream?.video?.codec;
+            const requestedAudioCodec = requestMediaStream?.audio?.codec;
+            const videoIsCompatible = inputVideoCodec && requestedVideoCodec
+                ? inputVideoCodec.toLowerCase() === requestedVideoCodec.toLowerCase()
+                : inputVideoCodec === 'h264';
+            const audioIsCompatible = inputAudioCodec && requestedAudioCodec
+                ? inputAudioCodec.toLowerCase() === requestedAudioCodec.toLowerCase()
+                : false;
+
+            if (videoIsCompatible && audioIsCompatible) {
+                console.log(`[remux] direct remux: video=${inputVideoCodec} audio=${inputAudioCodec}`);
+            } else if (videoIsCompatible && !audioIsCompatible) {
+                console.log(`[remux] audio-only transcode: video=${inputVideoCodec} (copy), audio=${inputAudioCodec} → ${requestedAudioCodec || 'transcode'}`);
+            } else {
+                console.log(`[remux] full transcode fallback: video=${inputVideoCodec} → ${requestedVideoCodec || 'transcode'}, audio=${inputAudioCodec} → ${requestedAudioCodec || 'transcode'}`);
+            }
+            // ─────────────────────────────────────────────────────────────────────
+
             return ret;
         },
         emit(container: T, chunk: StreamChunk) {

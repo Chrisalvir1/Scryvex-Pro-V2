@@ -1,6 +1,7 @@
 import { SettingsMixinDeviceOptions } from "@scrypted/common/src/settings-mixin";
-import sdk, { ObjectDetector, Readme, ScryptedDeviceType, ScryptedInterface, Setting, SettingValue, VideoCamera } from "@scrypted/sdk";
+import sdk, { MediaObject, ObjectDetector, Readme, RequestMediaStreamOptions, ScryptedDeviceType, ScryptedInterface, Setting, SettingValue, VideoCamera } from "@scrypted/sdk";
 import { StorageSettings, StorageSettingsDevice } from "@scrypted/sdk/storage-settings";
+import { scoreHomeKitStream } from '../../ffmpeg-camera/src/common';
 import { HomekitMixin } from "./homekit-mixin";
 import { getDebugMode } from "./types/camera/camera-debug-mode-storage";
 
@@ -29,7 +30,7 @@ export function createCameraStorageSettings(device: StorageSettingsDevice) {
     });
 }
 
-export class CameraMixin extends HomekitMixin<Readme & VideoCamera> implements Readme {
+export class CameraMixin extends HomekitMixin<Readme & VideoCamera> implements Readme, VideoCamera {
     cameraStorageSettings = createCameraStorageSettings(this);
 
     constructor(options: SettingsMixinDeviceOptions<Readme & VideoCamera>) {
@@ -149,4 +150,66 @@ ${this.storageSettings.values.qrCode}
 
         deviceManager.onMixinEvent(this.id, this, ScryptedInterface.Settings, undefined);
     }
+
+    /**
+     * Intercept getVideoStream so HomeKit always routes requests through the
+     * best-available stream, using the shared HomeKit-compatibility score.
+     *
+     * Selection rules (in order of priority):
+     *  1. Caller already specifies a stream id  → honour it directly.
+     *  2. homekitPreferred flag on a stream      → prefer that stream.
+     *  3. directRemux + H.264                   → strong preference.
+     *  4. Highest score overall (codec + res)    → smart fallback.
+     *  5. First stream                           → safe last resort.
+     *
+     * Single-stream cameras are completely unaffected because all paths
+     * collapse to vsos[0] when only one stream is available.
+     */
+    async getVideoStream(options?: RequestMediaStreamOptions): Promise<MediaObject> {
+        // If the caller requested a specific stream id (e.g. intercom, snapshot
+        // or user-selected stream), pass through without overriding.
+        if (options?.id)
+            return this.mixinDevice.getVideoStream(options);
+
+        let vsos: any[];
+        try {
+            vsos = await this.mixinDevice.getVideoStreamOptions();
+        }
+        catch (e) {
+            // getVideoStreamOptions failed (e.g. camera offline) — fall back
+            // to the unmodified call so existing error handling is preserved.
+            return this.mixinDevice.getVideoStream(options);
+        }
+
+        if (!vsos?.length)
+            return this.mixinDevice.getVideoStream(options);
+
+        // Single-stream camera: no selection needed.
+        if (vsos.length === 1)
+            return this.mixinDevice.getVideoStream(options);
+
+        // Score all streams. scoreHomeKitStream is safe for objects without
+        // the new metadata fields (returns 0 → falls through to first stream).
+        const scored = vsos
+            .map(s => ({ s, score: scoreHomeKitStream(s) }))
+            .sort((a, b) => b.score - a.score);
+
+        const best = scored[0];
+        const chosen = best.score > 0 ? best.s : vsos[0];
+
+        this.console.log(
+            `[homekit] stream selection: id=${chosen.id} name=${chosen.name}` +
+            ` codec=${chosen.video?.codec || chosen.sourceCodec || 'unknown'}` +
+            ` ${chosen.video?.width || '?'}x${chosen.video?.height || '?'}` +
+            ` score=${best.score}` +
+            (chosen.homekitPreferred ? ' [homekitPreferred]' : '') +
+            (chosen.directRemux ? ' [directRemux]' : '')
+        );
+
+        return this.mixinDevice.getVideoStream({
+            ...options,
+            id: chosen.id,
+        });
+    }
 }
+

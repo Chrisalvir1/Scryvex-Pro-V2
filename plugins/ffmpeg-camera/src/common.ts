@@ -5,7 +5,67 @@ const { deviceManager } = sdk;
 
 export interface UrlMediaStreamOptions extends ResponseMediaStreamOptions {
     url: string;
+    /**
+     * Hint to HomeKit and RTSP/ONVIF plugins that this stream is the preferred
+     * one for HomeKit delivery (e.g. it has been manually designated or
+     * auto-detected as the best match).
+     */
+    homekitPreferred?: boolean;
+    /**
+     * Indicates the stream can be forwarded to HomeKit without re-encoding the
+     * video track (i.e. the source is already H.264-compatible).
+     */
+    directRemux?: boolean;
+    /**
+     * The raw codec identifier as reported by the camera (e.g. "h264", "h265",
+     * "hevc"). Used to make safe remux decisions even when the normalised codec
+     * field has been coerced.
+     */
+    sourceCodec?: string;
 }
+
+/**
+ * Compute a HomeKit-compatibility score for a stream so callers can pick the
+ * best available stream without transcoding.
+ *
+ * Scoring priority (highest wins):
+ *   1. homekitPreferred flag (explicit user/plugin preference)
+ *   2. directRemux flag (video copy is safe)
+ *   3. H.264 codec (native HomeKit codec)
+ *   4. Resolution (higher = better, within HomeKit limits)
+ *   5. H.265/HEVC (secondary fallback only)
+ *
+ * Safe for single-stream cameras: always returns a positive value.
+ */
+export function scoreHomeKitStream(vso: UrlMediaStreamOptions): number {
+    let score = 0;
+
+    if (vso.homekitPreferred)
+        score += 10000;
+
+    if (vso.directRemux)
+        score += 1000;
+
+    const codec = (vso.video?.codec || vso.sourceCodec || '').toLowerCase();
+    if (codec.includes('h264') || codec === 'avc')
+        score += 500;
+    else if (codec.includes('h265') || codec.includes('hevc'))
+        score += 50; // usable only as fallback
+
+    // Resolution: reward higher pixel count, but cap contribution to avoid
+    // letting a massive-resolution H.265 stream outrank a lower-res H.264 one.
+    const width = vso.video?.width || 0;
+    const height = vso.video?.height || 0;
+    if (width && height) {
+        const pixels = width * height;
+        // Scale so 1080p (≈2M px) contributes ~200 points, 4K ~400 — never
+        // enough to flip H.264 vs H.265 decision alone.
+        score += Math.min(400, Math.round(pixels / 10000));
+    }
+
+    return score;
+}
+
 
 export abstract class CameraBase<T extends ResponseMediaStreamOptions> extends ScryptedDeviceBase implements Camera, VideoCamera, Settings {
     constructor(nativeId: string, public provider: CameraProviderBase<T>) {

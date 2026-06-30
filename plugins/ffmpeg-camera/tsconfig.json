@@ -11,6 +11,7 @@
         "noImplicitAny": false,
         "strictNullChecks": false,
         "baseUrl": ".",
+        "types": ["node"],
         "paths": {
             "@scrypted/sdk": [
                 "./node_modules/@scrypted/sdk"
