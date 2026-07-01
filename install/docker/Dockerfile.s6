@@ -66,6 +66,16 @@ RUN npm install && npm run build
 WORKDIR /scrypted-src/plugins/homekit
 RUN npm install && npm run build
 
+# Build WebRTC, RTSP, FFmpeg Camera, and ONVIF plugins locally
+WORKDIR /scrypted-src/plugins/webrtc
+RUN npm install && npm run build
+WORKDIR /scrypted-src/plugins/rtsp
+RUN npm install && npm run build
+WORKDIR /scrypted-src/plugins/ffmpeg-camera
+RUN npm install && npm run build
+WORKDIR /scrypted-src/plugins/onvif
+RUN npm install && npm run build
+
 # Replace the official NPM server bundle with our customized one
 RUN cp -R /scrypted-src/server/dist/* /server/node_modules/@scrypted/server/dist/
 

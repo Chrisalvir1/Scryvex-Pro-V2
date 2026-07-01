@@ -548,14 +548,11 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
         installedSet.add(pkg);
 
         // Local custom plugin intercept logic for Scrypted Pro G&C
-        const localPlugins: { [key: string]: { dir: string, out: string } } = {
-            '@scrypted/core': { dir: '../../plugins/core', out: 'dist' },
-            '@scrypted/homekit': { dir: '../../plugins/homekit', out: 'out' }
-        };
-
-        if (localPlugins[pkg]) {
-            const lp = localPlugins[pkg];
-            const pluginDir = path.resolve(__dirname, lp.dir);
+        // Dynamically detects if the plugin code is inside the repository's plugins/ directory.
+        const pluginBaseName = pkg.replace(/^@scrypted\//, '');
+        const pluginDir = path.resolve(__dirname, '../../plugins', pluginBaseName);
+        
+        if (fs.existsSync(pluginDir)) {
             console.log('Scrypted Pro G&C - Intercepting NPM install for:', pkg);
             console.log('Loading local compiled source from:', pluginDir);
             
@@ -565,9 +562,15 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
                 const zip = new AdmZip();
                 zip.addLocalFile(packageJsonPath);
                 
-                const outPath = path.join(pluginDir, lp.out);
+                // Determine output build folder (either "dist", "out", or fallback to root files)
+                let outFolder = 'dist';
+                if (fs.existsSync(path.join(pluginDir, 'out'))) {
+                    outFolder = 'out';
+                }
+                
+                const outPath = path.join(pluginDir, outFolder);
                 if (fs.existsSync(outPath)) {
-                    zip.addLocalFolder(outPath, lp.out);
+                    zip.addLocalFolder(outPath, outFolder);
                 }
                 
                 const readmePath = path.join(pluginDir, 'README.md');
@@ -584,8 +587,6 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
                 
                 console.log('Scrypted Pro G&C - Local custom plugin loaded successfully:', pkg);
                 return this.installPlugin(plugin);
-            } else {
-                console.warn('Scrypted Pro G&C - Local path for plugin not found, falling back to NPM:', pluginDir);
             }
         }
 
