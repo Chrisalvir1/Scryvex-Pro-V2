@@ -548,9 +548,11 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
         installedSet.add(pkg);
 
         // Local custom plugin intercept logic for Scrypted Pro G&C
-        // Dynamically detects if the plugin code is inside the repository's plugins/ directory.
+        // Uses SCRYPTED_CUSTOM_PLUGINS_DIR env var (set to /scrypted-src/plugins in Docker)
+        // to locate custom-compiled plugins instead of downloading from NPM.
         const pluginBaseName = pkg.replace(/^@scrypted\//, '');
-        const pluginDir = path.resolve(__dirname, '../../plugins', pluginBaseName);
+        const customPluginsBase = process.env.SCRYPTED_CUSTOM_PLUGINS_DIR || '/scrypted-src/plugins';
+        const pluginDir = path.join(customPluginsBase, pluginBaseName);
         
         if (fs.existsSync(pluginDir)) {
             console.log('Scrypted Pro G&C - Intercepting NPM install for:', pkg);
