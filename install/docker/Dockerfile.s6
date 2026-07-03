@@ -64,6 +64,10 @@ RUN echo "BUILDING_CORE" && npm install && npm run build || (echo "=== BUILD FAI
 WORKDIR /scrypted-src/plugins/core/ui
 RUN echo "BUILDING_CORE_UI" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/core/ui ===" && exit 1)
 
+# Build external dependencies
+WORKDIR /scrypted-src/external/werift
+RUN echo "BUILDING_WERIFT" && npm install && npm run build || (echo "=== BUILD FAILED IN external/werift ===" && exit 1)
+
 # Build HomeKit with "Scrypted Pro G&C" manufacturer branding
 WORKDIR /scrypted-src/plugins/homekit
 RUN echo "BUILDING_HOMEKIT" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/homekit ===" && exit 1)
