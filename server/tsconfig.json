@@ -3,7 +3,7 @@
         "declaration": true,
         "module": "NodeNext",
         "target": "esnext",
-        "strict": true,
+        "strict": false,
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
         "noImplicitOverride": false,

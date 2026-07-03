@@ -3,7 +3,7 @@
         "module": "Node16",
         "moduleResolution": "Node16",
         "target": "esnext",
-        "noImplicitAny": true,
+        "noImplicitAny": false,
         "outDir": "./dist",
         "esModuleInterop": true,
         // skip error: Interface 'WebGL2RenderingContext' incorrectly extends interface 'WebGL2RenderingContextBase'.

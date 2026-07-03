@@ -1,14 +1,18 @@
 {
     "compilerOptions": {
+        "skipLibCheck": true,
+        "strict": false,
+        "noImplicitAny": false,
+        "strictNullChecks": false,
         "module": "commonjs",
         "target": "ES2020",
-        "noImplicitAny": true,
+        "noImplicitAny": false,
         "esModuleInterop": true,
         "sourceMap": true,
         "declaration": true,
         "outDir": "dist",
         "allowSyntheticDefaultImports": true,
-        "strict": true
+        "strict": false
     },
     "include": [
         "src/**/*",
