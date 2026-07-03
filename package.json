@@ -1,0 +1,12 @@
+{
+  "name": "scrypted-pro-gc",
+  "private": true,
+  "workspaces": [
+    "sdk",
+    "common",
+    "server",
+    "plugins/*",
+    "packages/*",
+    "external/werift/packages/*"
+  ]
+}

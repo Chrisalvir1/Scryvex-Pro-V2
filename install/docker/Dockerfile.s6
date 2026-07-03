@@ -47,6 +47,10 @@ RUN npx -y scrypted@latest install-server ${SCRYPTED_INSTALL_VERSION}
 # Scrypted Pro G&C Custom Source Injection
 COPY . /scrypted-src
 
+# Install root dependencies for workspace resolution
+WORKDIR /scrypted-src
+RUN echo "INSTALLING_ROOT" && npm install || (echo "=== NPM INSTALL FAILED IN ROOT ===" && exit 1)
+
 
 # Build SDK, common, and server dependencies
 WORKDIR /scrypted-src/sdk
