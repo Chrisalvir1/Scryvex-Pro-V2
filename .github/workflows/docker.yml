@@ -20,6 +20,9 @@ jobs:
   build:
     name: Push Docker image to Github Container Registry
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         BASE: [
