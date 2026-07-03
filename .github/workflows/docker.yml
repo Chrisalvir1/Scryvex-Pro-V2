@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Set local Scrypted version
         id: package-version
