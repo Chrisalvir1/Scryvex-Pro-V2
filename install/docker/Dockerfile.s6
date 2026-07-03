@@ -8,7 +8,8 @@ RUN apt-get update && apt-get -y install \
     libnss-mdns \
     avahi-discover \
     libavahi-compat-libdnssd-dev \
-    xz-utils
+    xz-utils \
+    build-essential
 
 # killall
 RUN apt -y install psmisc
