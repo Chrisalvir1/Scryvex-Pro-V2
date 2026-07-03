@@ -21,7 +21,9 @@
             "@scrypted/common/*": [
                 "./node_modules/@scrypted/common/*"
             ]
-        }
+        },
+        "noImplicitOverride": false,
+        "skipLibCheck": true
     },
     "include": [
         "src/**/*"

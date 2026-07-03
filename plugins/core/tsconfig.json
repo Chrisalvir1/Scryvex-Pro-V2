@@ -11,8 +11,13 @@
         "strictNullChecks": false,
         "strictPropertyInitialization": false,
         "skipLibCheck": true,
-        "lib": ["esnext"],
-        "types": ["node"]
+        "lib": [
+            "esnext"
+        ],
+        "types": [
+            "node"
+        ],
+        "noImplicitOverride": false
     },
     "include": [
         "src/**/*"

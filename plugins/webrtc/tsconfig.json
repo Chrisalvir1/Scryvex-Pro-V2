@@ -11,7 +11,8 @@
         "strictNullChecks": false,
         "strictPropertyInitialization": false,
         "noImplicitThis": false,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "noImplicitOverride": false
     },
     "include": [
         "src/**/*"
