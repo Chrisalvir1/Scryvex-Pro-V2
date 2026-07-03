@@ -44,7 +44,7 @@ ENTRYPOINT ["/init"]
 ARG SCRYPTED_INSTALL_VERSION="latest"
 RUN test -n "$SCRYPTED_INSTALL_VERSION"
 RUN --mount=type=cache,target=/root/.npm \
-    mkdir -p /server && cd /server && \
+    rm -rf /server && mkdir -p /server && cd /server && \
     echo '{"name":"scrypted-server","private":true,"dependencies":{}}' > package.json && \
     npm install --no-audit --no-fund --legacy-peer-deps @scrypted/server@${SCRYPTED_INSTALL_VERSION}
 
