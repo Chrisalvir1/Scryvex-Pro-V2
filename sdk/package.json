@@ -60,7 +60,7 @@
     "@types/tmp": "^0.2.6",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.14",
-    "typescript": "^7.0.1-rc",
+    "typescript": "^6.0.3",
     "typescript-js": "npm:typescript@^6.0.3"
   },
   "types": "dist/src/index.d.ts"
