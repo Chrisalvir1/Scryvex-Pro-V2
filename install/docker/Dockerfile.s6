@@ -79,21 +79,23 @@ WORKDIR /scrypted-src/external/werift
 RUN git apply /scrypted-src/patches/werift-h265.patch || true
 RUN echo "BUILDING_WERIFT" && npm install && npm run build || (echo "=== BUILD FAILED IN external/werift ===" || true)
 
+# Build WebRTC and FFmpeg Camera plugins first (since HomeKit and other plugins import from them)
+WORKDIR /scrypted-src/plugins/webrtc
+RUN echo "BUILDING_WEBRTC" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/webrtc ===" || true)
+WORKDIR /scrypted-src/plugins/ffmpeg-camera
+RUN echo "BUILDING_FFMPEG_CAMERA" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/ffmpeg-camera ===" || true)
+
 # Build HomeKit with "Scrypted Pro G&C" manufacturer branding
 WORKDIR /scrypted-src/plugins/homekit
 RUN echo "BUILDING_HOMEKIT" && rm -f package-lock.json && npm install --no-audit --no-fund && npm run build || (echo "=== BUILD FAILED IN plugins/homekit (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log || true)
 WORKDIR /scrypted-src/plugins/homekit27
 RUN echo "BUILDING_HOMEKIT27" && rm -f package-lock.json && npm install --no-audit --no-fund && npm run build || (echo "=== BUILD FAILED IN plugins/homekit27 (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log || true)
 
-# Build WebRTC, RTSP, FFmpeg Camera, and ONVIF plugins locally
-WORKDIR /scrypted-src/plugins/webrtc
-RUN echo "BUILDING_WEBRTC" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/webrtc ===" || true)
+# Build remaining plugins locally
 WORKDIR /scrypted-src/plugins/webrtc27
 RUN echo "BUILDING_WEBRTC27" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/webrtc27 ===" || true)
 WORKDIR /scrypted-src/plugins/rtsp
 RUN echo "BUILDING_RTSP" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/rtsp ===" || true)
-WORKDIR /scrypted-src/plugins/ffmpeg-camera
-RUN echo "BUILDING_FFMPEG_CAMERA" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/ffmpeg-camera ===" || true)
 WORKDIR /scrypted-src/plugins/onvif
 RUN echo "BUILDING_ONVIF" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/onvif ===" || true)
 

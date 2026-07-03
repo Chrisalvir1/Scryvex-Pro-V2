@@ -424,7 +424,7 @@ export class H265Repacketizer {
             return;
         }
 
-        const nalType = packet.(payload[0] >> 1) & 0x3f;
+        const nalType = (packet.payload[0] >> 1) & 0x3f;
 
         // fragmented packets must share a timestamp
         if (this.pendingFuA && this.pendingFuA[0].header.timestamp !== packet.header.timestamp) {
