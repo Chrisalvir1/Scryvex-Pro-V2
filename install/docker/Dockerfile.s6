@@ -116,27 +116,31 @@ RUN --mount=type=cache,target=/root/.npm \
 RUN echo "BUILDING_FFMPEG_CAMERA" && cd /scrypted-src/plugins/ffmpeg-camera && npm run build \
     || (echo "=== BUILD FAILED IN plugins/ffmpeg-camera ===" || true)
 
-# HomeKit plugins MUST be copied before webrtc (webrtc imports homekit source at compile time)
+# IMPORTANT: webrtc source must be COPIED (not built yet) BEFORE compiling homekit.
+# homekit's webpack bundle resolves '../../../../webrtc/src/rtp-forwarders' at compile time.
+# If the webrtc directory doesn't exist in the container, homekit webpack fails.
+COPY plugins/webrtc/ /scrypted-src/plugins/webrtc/
+COPY plugins/webrtc27/ /scrypted-src/plugins/webrtc27/
+
+# Now build homekit/homekit27 — webrtc source is present so imports resolve correctly.
 COPY plugins/homekit/ /scrypted-src/plugins/homekit/
 RUN --mount=type=cache,target=/root/.npm \
     cd /scrypted-src/plugins/homekit && rm -f package-lock.json && npm install --no-audit --no-fund
 RUN echo "BUILDING_HOMEKIT" && cd /scrypted-src/plugins/homekit && npm run build \
-    || (echo "=== BUILD FAILED IN plugins/homekit (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log || true)
+    || (echo "=== BUILD FAILED IN plugins/homekit ===" && true)
 
 COPY plugins/homekit27/ /scrypted-src/plugins/homekit27/
 RUN --mount=type=cache,target=/root/.npm \
     cd /scrypted-src/plugins/homekit27 && rm -f package-lock.json && npm install --no-audit --no-fund
 RUN echo "BUILDING_HOMEKIT27" && cd /scrypted-src/plugins/homekit27 && npm run build \
-    || (echo "=== BUILD FAILED IN plugins/homekit27 (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log || true)
+    || (echo "=== BUILD FAILED IN plugins/homekit27 ===" && true)
 
-# WebRTC plugins (require homekit source to be present for cross-plugin imports)
-COPY plugins/webrtc/ /scrypted-src/plugins/webrtc/
+# Now build webrtc/webrtc27 (homekit source is present for any cross-plugin imports).
 RUN --mount=type=cache,target=/root/.npm \
     cd /scrypted-src/plugins/webrtc && npm install
 RUN echo "BUILDING_WEBRTC" && cd /scrypted-src/plugins/webrtc && npm run build \
     || (echo "=== BUILD FAILED IN plugins/webrtc ===" || true)
 
-COPY plugins/webrtc27/ /scrypted-src/plugins/webrtc27/
 RUN --mount=type=cache,target=/root/.npm \
     cd /scrypted-src/plugins/webrtc27 && npm install
 RUN echo "BUILDING_WEBRTC27" && cd /scrypted-src/plugins/webrtc27 && npm run build \
