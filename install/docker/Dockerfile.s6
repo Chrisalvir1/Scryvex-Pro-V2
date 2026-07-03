@@ -76,6 +76,7 @@ RUN echo "BUILDING_CORE_UI" && npm install && npm run build || (echo "=== BUILD 
 
 # Build external dependencies
 WORKDIR /scrypted-src/external/werift
+RUN git apply /scrypted-src/patches/werift-h265.patch || true
 RUN echo "BUILDING_WERIFT" && npm install && npm run build || (echo "=== BUILD FAILED IN external/werift ===" || true)
 
 # Build HomeKit with "Scrypted Pro G&C" manufacturer branding
