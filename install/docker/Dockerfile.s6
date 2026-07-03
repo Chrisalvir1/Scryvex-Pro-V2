@@ -44,6 +44,9 @@ RUN npx -y scrypted@latest install-server ${SCRYPTED_INSTALL_VERSION}
 # Scrypted Pro G&C Custom Source Injection
 COPY . /scrypted-src
 
+# Initialize git submodules
+RUN cd /scrypted-src && git submodule update --init --recursive
+
 # Build SDK, common, and server dependencies
 WORKDIR /scrypted-src/common
 RUN npm install && npm run build
@@ -62,9 +65,13 @@ RUN npm install && npm run build
 WORKDIR /scrypted-src/plugins/core/ui
 RUN npm install && npm run build
 
+# Build external dependencies (werift is needed by homekit)
+WORKDIR /scrypted-src/external/werift
+RUN echo "BUILDING_WERIFT" && npm install && npm run build || (echo "=== BUILD FAILED IN external/werift ===" && exit 1)
+
 # Build HomeKit with "Scrypted Pro G&C" manufacturer branding
 WORKDIR /scrypted-src/plugins/homekit
-RUN npm install && npm run build
+RUN echo "BUILDING_HOMEKIT" && npm install && npm run build || (echo "=== BUILD FAILED IN plugins/homekit ===" && exit 1)
 
 # Build WebRTC, RTSP, FFmpeg Camera, and ONVIF plugins locally
 WORKDIR /scrypted-src/plugins/webrtc
