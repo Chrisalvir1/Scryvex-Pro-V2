@@ -47,9 +47,9 @@ RUN npx -y scrypted@latest install-server ${SCRYPTED_INSTALL_VERSION}
 COPY . /scrypted-src
 
 # Build SDK, common, and server dependencies
-WORKDIR /scrypted-src/common
-RUN npm install && npm run build || (echo "=== BUILD FAILED IN $(pwd) ===" && exit 1)
 WORKDIR /scrypted-src/sdk
+RUN npm install && npm run build || (echo "=== BUILD FAILED IN $(pwd) ===" && exit 1)
+WORKDIR /scrypted-src/common
 RUN npm install && npm run build || (echo "=== BUILD FAILED IN $(pwd) ===" && exit 1)
 WORKDIR /scrypted-src/packages/client
 RUN npm install && npm run build || (echo "=== BUILD FAILED IN $(pwd) ===" && exit 1)
