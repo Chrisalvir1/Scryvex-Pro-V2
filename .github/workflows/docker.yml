@@ -34,6 +34,21 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Diagnostic host build
+        run: |
+          echo "=== NODE VERSION ==="
+          node -v
+          echo "=== NPM VERSION ==="
+          npm -v
+          echo "=== BUILDING SDK ==="
+          cd sdk && npm install && npm run build
+          echo "=== BUILDING COMMON ==="
+          cd ../common && npm install && npm run build
+          echo "=== BUILDING WERIFT ==="
+          cd ../external/werift && npm install && npm run build
+          echo "=== BUILDING HOMEKIT ==="
+          cd ../../plugins/homekit && npm install && npm run build
+
       - name: Set local Scrypted version
         id: package-version
         run: |
