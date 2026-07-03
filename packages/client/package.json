@@ -16,11 +16,10 @@
     "@types/node": "^24.0.10",
     "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  },
-  "peerDependencies": {
+    "typescript": "^5.8.3",
     "@scrypted/types": "file:../../sdk/types"
   },
+  "peerDependencies": {},
   "dependencies": {
     "engine.io-client": "^6.6.3",
     "follow-redirects": "^1.15.9",
