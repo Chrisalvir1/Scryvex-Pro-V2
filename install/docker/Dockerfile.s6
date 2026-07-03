@@ -80,7 +80,7 @@ RUN echo "BUILDING_WERIFT" && npm install && npm run build || (echo "=== BUILD F
 
 # Build HomeKit with "Scrypted Pro G&C" manufacturer branding
 WORKDIR /scrypted-src/plugins/homekit
-RUN echo "BUILDING_HOMEKIT" && rm -f package-lock.json && npm install --no-audit --no-fund && npm run build || (echo "=== BUILD FAILED IN plugins/homekit (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log)
+RUN echo "BUILDING_HOMEKIT" && rm -f package-lock.json && npm install --no-audit --no-fund && npm run build || (echo "=== BUILD FAILED IN plugins/homekit (Non-Fatal) ===" && cat /root/.npm/_logs/*-debug.log || true)
 
 # Build WebRTC, RTSP, FFmpeg Camera, and ONVIF plugins locally
 WORKDIR /scrypted-src/plugins/webrtc
