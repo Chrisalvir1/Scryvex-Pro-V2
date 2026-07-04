@@ -107,13 +107,7 @@ class ScryptedCore extends ScryptedDeviceBase implements HttpRequestHandler, Dev
 
         this.storageSettings.settings.releaseChannel.hide = process.env.SCRYPTED_INSTALL_ENVIRONMENT !== 'lxc-docker';
 
-        let uiPath = 'fs/web/index.html';
-        if (process.env.SCRYPTED_UNZIPPED_PATH) {
-            uiPath = path.join(process.env.SCRYPTED_UNZIPPED_PATH, uiPath);
-        } else if (process.env.SCRYPTED_PLUGIN_VOLUME) {
-            uiPath = path.join(process.env.SCRYPTED_PLUGIN_VOLUME, 'zip/unzipped', uiPath);
-        }
-        this.indexHtml = readFileAsString(uiPath);
+        this.indexHtml = readFileAsString('dist/index.html');
 
         (async () => {
             await deviceManager.onDeviceDiscovered(
@@ -329,38 +323,8 @@ class ScryptedCore extends ScryptedDeviceBase implements HttpRequestHandler, Dev
         // need to strip off the query.
         const incomingPathname = request.url.split('?')[0];
 
-        if (incomingPathname.startsWith('/legacy/')) {
-            const legacyPath = incomingPathname.substring('/legacy'.length);
-            if (legacyPath === '/' || legacyPath === '/index.html' || legacyPath === '') {
-                // Read the old UI's index.html
-                let uiPath = 'fs/dist/index.html';
-                if (process.env.SCRYPTED_UNZIPPED_PATH) {
-                    uiPath = path.join(process.env.SCRYPTED_UNZIPPED_PATH, uiPath);
-                } else if (process.env.SCRYPTED_PLUGIN_VOLUME) {
-                    uiPath = path.join(process.env.SCRYPTED_PLUGIN_VOLUME, 'zip/unzipped', uiPath);
-                }
-                
-                try {
-                    let oldHtml = readFileAsString(uiPath);
-                    // Inject embedding CSS dynamically if needed, though we already patched the zip
-                    response.send(oldHtml, {
-                        headers: {
-                            'Content-Type': 'text/html',
-                            'Clear-Site-Data': '"cache", "storage", "executionContexts"'
-                        }
-                    });
-                } catch (e) {
-                    response.send('Legacy UI not found', { code: 404 });
-                }
-                return;
-            } else {
-                response.sendFile("dist" + legacyPath);
-                return;
-            }
-        }
-
         if (request.url !== '/index.html') {
-            response.sendFile("web" + incomingPathname);
+            response.sendFile("dist" + incomingPathname);
             return;
         }
 
@@ -378,12 +342,11 @@ class ScryptedCore extends ScryptedDeviceBase implements HttpRequestHandler, Dev
             response.send(rewritten, {
                 headers: {
                     'Content-Type': 'text/html',
-                    'Clear-Site-Data': '"cache", "storage", "executionContexts"'
                 }
             });
         }
         catch (e) {
-            response.sendFile("web" + incomingPathname);
+            response.sendFile("dist" + incomingPathname);
         }
     }
 

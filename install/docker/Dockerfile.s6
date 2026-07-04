@@ -96,10 +96,6 @@ RUN --mount=type=cache,target=/root/.npm \
 RUN echo "BUILDING_CORE" && cd /scrypted-src/plugins/core && npm run build \
     || (echo "=== BUILD FAILED IN plugins/core ===" || true)
 
-RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/core/ui && npm install
-RUN echo "BUILDING_CORE_UI" && cd /scrypted-src/plugins/core/ui && npm run build \
-    || (echo "=== BUILD FAILED IN plugins/core/ui ===" || true)
 
 # WebRTC dependencies (werift - heavy, rarely changes)
 COPY external/werift/ /scrypted-src/external/werift/
