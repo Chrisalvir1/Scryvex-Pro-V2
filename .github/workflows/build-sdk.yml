@@ -24,6 +24,4 @@ jobs:
         with:
           node-version: 22.4.1
       - run: rm -f package-lock.json && npm install --legacy-peer-deps
-      - run: npm run build > build_error.log 2>&1 || (gh issue create --title "Build Error Log" --body-file build_error.log && exit 1)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm run build > build_error.log 2>&1 || (git config --global user.email "bot@scrypted.app" && git config --global user.name "Scrypted Bot" && git add build_error.log && git commit -m "chore: save build error log" && git push origin main && exit 1)
