@@ -66,7 +66,7 @@
   },
   "types": "dist/src/index.d.ts",
   "overrides": {
-    "typescript": "$typescript"
+    "typescript": "^7.0.1-rc"
   }
 }
 

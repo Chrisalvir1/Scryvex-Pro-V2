@@ -12,7 +12,8 @@
         "declaration": true,
         "outDir": "dist",
         "allowSyntheticDefaultImports": true,
-        "strict": false
+        "strict": false,
+        "forceConsistentCasingInFileNames": true
     },
     "include": [
         "src/**/*",
