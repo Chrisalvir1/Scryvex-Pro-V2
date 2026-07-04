@@ -1,8 +1,14 @@
 /// <reference types="node" />
 import fs from 'fs';
 import path from 'path';
-import { DeclarationReflection, ProjectReflection, ReflectionKind, SomeType } from 'typedoc';
+import type { DeclarationReflection, ProjectReflection, SomeType } from 'typedoc';
 import { ScryptedInterface, ScryptedInterfaceDescriptor } from "./types.input";
+
+enum ReflectionKind {
+    Enum = 8,
+    Property = 1024,
+    Method = 2048,
+}
 
 const schema = JSON.parse(fs.readFileSync(path.join(__dirname, '../gen/schema.json')).toString()) as ProjectReflection;
 const packageJson = require('../package.json');
