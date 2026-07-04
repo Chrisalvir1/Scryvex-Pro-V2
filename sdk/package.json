@@ -64,5 +64,8 @@
     "typescript": "^7.0.1-rc",
     "typescript-js": "npm:typescript@^6.0.3"
   },
-  "types": "dist/src/index.d.ts"
+  "types": "dist/src/index.d.ts",
+  "overrides": {
+    "typescript": "$typescript"
+  }
 }
