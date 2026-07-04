@@ -1,6 +1,6 @@
 {
   "name": "@scrypted/server",
-  "version": "0.144.51",
+  "version": "0.144.52",
   "private": true,
   "description": "Scrypted Platform",
   "dependencies": {

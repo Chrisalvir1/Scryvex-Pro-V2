@@ -1049,6 +1049,46 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
             plugins.push(plugin);
         }
 
+        // Scrypted Pro G&C: Auto-install or update local custom plugins on startup
+        try {
+            const customPluginsBase = process.env.SCRYPTED_CUSTOM_PLUGINS_DIR || '/scrypted-src/plugins';
+            if (fs.existsSync(customPluginsBase)) {
+                const dirs = fs.readdirSync(customPluginsBase);
+                for (const dir of dirs) {
+                    const pluginDir = path.join(customPluginsBase, dir);
+                    const packageJsonPath = path.join(pluginDir, 'package.json');
+                    
+                    let pluginZipPath = path.join(pluginDir, 'dist', 'plugin.zip');
+                    if (!fs.existsSync(pluginZipPath)) {
+                        pluginZipPath = path.join(pluginDir, 'out', 'plugin.zip');
+                    }
+
+                    if (fs.existsSync(packageJsonPath) && fs.existsSync(pluginZipPath)) {
+                        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                        const pkgName = packageJson.name;
+                        const existingPlugin = plugins.find(p => p._id === pkgName);
+                        if (!existingPlugin || semver.gt(packageJson.version, existingPlugin.packageJson.version)) {
+                            console.log(`[Scrypted Pro G&C] Auto-installing custom plugin: ${pkgName}@${packageJson.version}`);
+                            try {
+                                const newHost = await this.installNpm(pkgName);
+                                if (newHost && !existingPlugin) {
+                                    // Make sure it gets loaded in the loops below if it's new
+                                    const newPlugin = await this.datastore.tryGet(Plugin, pkgName);
+                                    if (newPlugin) {
+                                        plugins.push(newPlugin);
+                                    }
+                                }
+                            } catch (err) {
+                                console.error(`[Scrypted Pro G&C] Failed to auto-install ${pkgName}:`, err);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('[Scrypted Pro G&C] Error during auto-install loop', e);
+        }
+
         for (const plugin of plugins) {
             try {
                 const pluginDevice = this.findPluginDevice(plugin._id)!;
