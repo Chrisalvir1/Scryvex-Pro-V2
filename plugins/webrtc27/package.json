@@ -22,6 +22,7 @@
    "scrypted": {
       "name": "WebRTC 27",
       "type": "API",
+      "babel": true,
       "interfaces": [
          "Settings",
          "MediaConverter",

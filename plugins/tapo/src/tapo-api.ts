@@ -8,14 +8,14 @@ import { digestAuthHeader } from './digest-auth';
 
 export function getTapoAdminPassword(cloudPassword: string, useSHA256: boolean) {
     if (useSHA256) {
-        return crypto.createHash('sha256').update(Buffer.from(cloudPassword)).digest('hex').toUpperCase();
+        return crypto.createHash('sha256').update(cloudPassword).digest('hex').toUpperCase();
     }
-    return crypto.createHash('md5').update(Buffer.from(cloudPassword)).digest('hex').toUpperCase();
+    return crypto.createHash('md5').update(cloudPassword).digest('hex').toUpperCase();
 }
 
 export class TapoAPI {
-    keyExchange: string;
-    stream: Duplex;
+    keyExchange!: string;
+    stream!: Duplex;
 
     constructor() {
     }
@@ -83,7 +83,7 @@ export class TapoAPI {
 
             console.log('message', headers, body?.toString());
             if (headers['content-type']?.includes('application/json')) {
-                const json = JSON.parse(body.toString());
+                const json = JSON.parse(body!.toString());
                 if (json.type === 'response') {
                     const { seq, params } = json;
                     const deferred = this.requests.get(seq);
@@ -98,7 +98,7 @@ export class TapoAPI {
 
     requests = new Map<number, Deferred<any>>();
     seq = 0;
-    backchannelSessionId: string;
+    backchannelSessionId!: string;
 
     async startMpegTsBackchannel(): Promise<Writable> {
         const response = await this.request({
@@ -121,7 +121,7 @@ export class TapoAPI {
                 return;
 
             this.stream.write('----client-stream-boundary--\r\n');
-            writeMessage(this.stream, undefined, data, {
+            writeMessage(this.stream, '', data, {
                 'Content-Type': 'audio/mp2t',
                 'X-If-Encrypt': '0',
                 'X-Session-Id': this.backchannelSessionId,
@@ -145,7 +145,7 @@ export class TapoAPI {
         const deferred = new Deferred<any>();
         this.requests.set(seq, deferred);
         this.stream.write('----client-stream-boundary--\r\n');
-        writeMessage(this.stream, undefined, Buffer.from(JSON.stringify(request)), {
+        writeMessage(this.stream, '', Buffer.from(JSON.stringify(request)), {
             'Content-Type': 'application/json',
         });
         this.stream.write('\r\n');

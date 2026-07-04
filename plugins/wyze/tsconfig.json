@@ -5,6 +5,7 @@
         "resolveJsonModule": true,
         "moduleResolution": "Node16",
         "esModuleInterop": true,
+        "strict": true,
         "sourceMap": true
     },
     "include": [

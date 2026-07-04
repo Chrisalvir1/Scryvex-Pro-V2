@@ -35,8 +35,9 @@
          ]
       }
    },
-   "devDependencies": {
+   "dependencies": {
       "@scrypted/sdk": "file:../../sdk"
    },
+   "devDependencies": {},
    "version": "0.0.57"
 }

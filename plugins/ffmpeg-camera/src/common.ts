@@ -24,6 +24,28 @@ export interface UrlMediaStreamOptions extends ResponseMediaStreamOptions {
     sourceCodec?: string;
 }
 
+function normalizeCodec(codec?: string): string | undefined {
+    const lower = codec?.trim().toLowerCase();
+    if (!lower)
+        return undefined;
+    if (lower === 'avc' || lower.includes('h264') || lower.includes('h.264'))
+        return 'h264';
+    if (lower === 'hevc' || lower.includes('h265') || lower.includes('h.265'))
+        return 'h265';
+    return lower;
+}
+
+function describeStream(vso: ResponseMediaStreamOptions): string {
+    const video = vso.video?.codec || (vso as UrlMediaStreamOptions).sourceCodec || 'unknown';
+    const audio = vso.audio === null ? 'none' : vso.audio?.codec || 'unknown';
+    const width = vso.video?.width;
+    const height = vso.video?.height;
+    const resolution = width && height ? `${width}x${height}` : 'unknown resolution';
+    const directRemux = !!(vso as UrlMediaStreamOptions).directRemux;
+    const preferred = !!(vso as UrlMediaStreamOptions).homekitPreferred;
+    return `${vso.name || vso.id || 'Stream'}: video=${video}, audio=${audio}, ${resolution}, container=${vso.container || 'unknown'}, directRemux=${directRemux}, homekitPreferred=${preferred}`;
+}
+
 /**
  * Compute a HomeKit-compatibility score for a stream so callers can pick the
  * best available stream without transcoding.
@@ -82,7 +104,7 @@ export abstract class CameraBase<T extends ResponseMediaStreamOptions> extends S
 
     async getVideoStreamOptions(): Promise<T[]> {
         const vsos = this.getRawVideoStreamOptions();
-        return vsos;
+        return this.applyHomeKitStreamSettings(vsos);
     }
 
     abstract getRawVideoStreamOptions(): T[];
@@ -117,7 +139,133 @@ export abstract class CameraBase<T extends ResponseMediaStreamOptions> extends S
     }
 
     async getStreamSettings(): Promise<Setting[]> {
-        return [];
+        const vsos = await this.getVideoStreamOptions().catch(() => []);
+        const diagnostics = vsos?.length
+            ? vsos.map(describeStream).join('\n')
+            : 'No stream options detected yet. Use Log Stream Diagnostics, verify credentials, or check the camera plugin logs.';
+
+        return [
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'streamDiagnostics',
+                title: 'Detected Streams',
+                type: 'textarea',
+                readonly: true,
+                value: diagnostics,
+                description: 'Current stream metadata used by preview, WebRTC, and HomeKit 27 export.',
+            },
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'videoCodec',
+                title: 'Video Codec Override',
+                description: 'Use Auto unless detection is wrong. H.264 enables direct remux; H.265/HEVC is kept as HEVC for HomeKit 27.',
+                value: this.storage.getItem('videoCodec') || '',
+                choices: [
+                    '',
+                    'h264',
+                    'h265',
+                ],
+                combobox: true,
+            },
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'audioCodec',
+                title: 'Audio Codec Override',
+                description: 'Use Auto unless detection is wrong. Opus can be passed through when compatible; PCM/AAC may need transcoding.',
+                value: this.storage.getItem('audioCodec') || '',
+                choices: [
+                    '',
+                    'aac',
+                    'opus',
+                    'pcm_mulaw',
+                    'pcm_alaw',
+                ],
+                combobox: true,
+            },
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'directRemuxMode',
+                title: 'Remux Mode',
+                description: 'Auto is recommended. Force only when you know the stream is already HomeKit-compatible.',
+                value: this.storage.getItem('directRemuxMode') || 'Auto',
+                choices: [
+                    'Auto',
+                    'Force Direct Remux',
+                    'Disable Direct Remux',
+                ],
+            },
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'homekitPreferred',
+                title: 'Prefer This Camera Stream For HomeKit',
+                description: 'Marks this camera stream as preferred when HomeKit 27 asks for video.',
+                type: 'boolean',
+                value: this.storage.getItem('homekitPreferred') === 'true',
+            },
+            {
+                group: 'HomeKit',
+                subgroup: 'Codec / Remux',
+                key: 'logStreamDiagnostics',
+                title: 'Log Stream Diagnostics',
+                type: 'button',
+                description: 'Writes stream codec/remux metadata to this camera console without exposing RTSP passwords.',
+            },
+        ];
+    }
+
+    applyHomeKitStreamSettings(vsos: T[]): T[] {
+        if (!vsos)
+            return vsos;
+
+        const videoCodec = normalizeCodec(this.storage.getItem('videoCodec') || undefined);
+        const audioCodec = normalizeCodec(this.storage.getItem('audioCodec') || undefined) || this.storage.getItem('audioCodec') || undefined;
+        const directRemuxMode = this.storage.getItem('directRemuxMode') || 'Auto';
+        const homekitPreferred = this.storage.getItem('homekitPreferred') === 'true';
+
+        for (const vso of vsos as (T & UrlMediaStreamOptions)[]) {
+            const detectedVideoCodec = normalizeCodec(vso.video?.codec || vso.sourceCodec);
+            const effectiveVideoCodec = videoCodec || detectedVideoCodec;
+
+            if (effectiveVideoCodec) {
+                vso.video ||= {};
+                vso.video.codec = effectiveVideoCodec;
+                vso.sourceCodec ||= effectiveVideoCodec;
+            }
+
+            if (audioCodec && vso.audio !== null) {
+                vso.audio ||= {};
+                vso.audio.codec = audioCodec;
+            }
+
+            if (directRemuxMode === 'Force Direct Remux')
+                vso.directRemux = true;
+            else if (directRemuxMode === 'Disable Direct Remux')
+                vso.directRemux = false;
+            else
+                vso.directRemux = effectiveVideoCodec === 'h264';
+
+            if (homekitPreferred || effectiveVideoCodec === 'h264' || effectiveVideoCodec === 'h265')
+                vso.homekitPreferred = true;
+        }
+
+        return vsos;
+    }
+
+    async logStreamDiagnostics() {
+        try {
+            const vsos = await this.getVideoStreamOptions();
+            this.console.log(`[camera diagnostics] ${this.name || this.id}: ${vsos?.length || 0} stream option(s)`);
+            for (const vso of vsos || [])
+                this.console.log('[camera diagnostics]', describeStream(vso));
+        }
+        catch (e) {
+            this.console.error(`[camera diagnostics] failed to read stream options for ${this.name || this.id}`, e);
+        }
     }
 
     getUsernameDescription(): string {
@@ -161,6 +309,17 @@ export abstract class CameraBase<T extends ResponseMediaStreamOptions> extends S
             const vsos = await this.getVideoStreamOptions();
             const stream = vsos.find(vso => vso.name === value);
             this.storage.setItem('defaultStream', stream?.id || '');
+        }
+        else if ([
+            'videoCodec',
+            'audioCodec',
+            'directRemuxMode',
+            'homekitPreferred',
+        ].includes(key)) {
+            this.storage.setItem(key, value?.toString() || '');
+        }
+        else if (key === 'logStreamDiagnostics') {
+            await this.logStreamDiagnostics();
         }
         else {
             this.storage.setItem(key, value?.toString() || '');

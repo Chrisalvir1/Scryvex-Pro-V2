@@ -2,9 +2,9 @@ import { RtpPacket } from '@koush/werift-src/packages/rtp/src/rtp/rtp';
 import { getDebugModeH264EncoderArgs } from '@scrypted/common/src/ffmpeg-hardware-acceleration';
 import { addVideoFilterArguments } from '@scrypted/common/src/ffmpeg-helpers';
 import { createBindZero } from '@scrypted/common/src/listen-cluster';
-import { getSpsPps } from '@scrypted/common/src/sdp-utils';
+import { getSpsPps, getSpsPpsVps } from '@scrypted/common/src/sdp-utils';
 import { FFmpegInput, MediaStreamDestination, ScryptedDevice, VideoCamera } from '@scrypted/sdk';
-import { RtpTrack, RtpTracks, startRtpForwarderProcess } from '../../../../webrtc/src/rtp-forwarders';
+import { RtpTrack, RtpTracks, startRtpForwarderProcess } from '../../../../webrtc27/src/rtp-forwarders';
 import { AudioStreamingCodecType, SRTPCryptoSuites } from '../../hap';
 import { getDebugMode } from './camera-debug-mode-storage';
 import { CameraStreamingSession, waitForFirstVideoRtcp } from './camera-streaming-session';
@@ -37,6 +37,8 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
         transcodingDebugModeWarning();
 
     const videoCodec = ffmpegInput.mediaStreamOptions?.video?.codec;
+    const normalizedVideoCodec = videoCodec?.toLowerCase();
+    const isHevc = normalizedVideoCodec === 'h265' || normalizedVideoCodec === 'hevc';
     const sourceDirectRemux = (ffmpegInput.mediaStreamOptions as any)?.directRemux;
     const needsFFmpeg = debugMode.video
         || ffmpegInput.container !== 'rtsp';
@@ -285,6 +287,8 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
         maxPacketSize: videomtu,
         sps: undefined,
         pps: undefined,
+        vps: undefined,
+        codec: isHevc ? 'h265' : 'h264',
     };
 
     const videoSender = createCameraStreamSender(console, session.vconfig, session.videoReturn,
@@ -296,7 +300,7 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
 
     const rtpTracks: RtpTracks = {
         video: {
-            codecCopy: videoIsSrtpSenderCompatible ? 'h264' : 'transcode',
+            codecCopy: videoIsSrtpSenderCompatible ? (isHevc ? 'h265' : 'h264') : 'transcode',
             encoderArguments: videoArgs,
             ffmpegDestination: `${videoAddress}:${videoRtpPort}`,
             packetSize: videomtu,
@@ -309,9 +313,17 @@ export async function startCameraStreamFfmpeg(device: ScryptedDevice & VideoCame
                 key: videoKey,
             },
             onMSection: (videoSection) => {
-                const spsPps = getSpsPps(videoSection);
-                videoOptions.sps = spsPps?.sps;
-                videoOptions.pps = spsPps?.pps;
+                if (isHevc) {
+                    const spsPpsVps = getSpsPpsVps(videoSection);
+                    videoOptions.sps = spsPpsVps?.sps;
+                    videoOptions.pps = spsPpsVps?.pps;
+                    videoOptions.vps = spsPpsVps?.vps;
+                }
+                else {
+                    const spsPps = getSpsPps(videoSection);
+                    videoOptions.sps = spsPps?.sps;
+                    videoOptions.pps = spsPps?.pps;
+                }
             },
             firstPacket() {
                 videoSender.sendRtcp();

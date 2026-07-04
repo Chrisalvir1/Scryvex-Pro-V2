@@ -48,7 +48,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
             onPut: async (ov, presets: string[]) => {
                 const caps = {
                     ...this.ptzCapabilities,
-                    presets: {},
+                    presets: {} as Record<string, string>,
                 };
                 for (const preset of presets) {
                     const [key, name] = preset.split('=');
@@ -89,7 +89,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
 
     async refreshPresets() {
         const client = await this.getClient();
-        client.cam.getPresets({}, (e, result, xml) => {
+        client.cam.getPresets({}, (e: any, result: any, xml: any) => {
             if (e) {
                 this.console.error('failed to get presets', e);
             }
@@ -128,7 +128,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
                     y: command.tilt,
                     zoom: command.zoom,
                     speed: speed,
-                }, (e, result, xml) => {
+                }, (e: any, result: any, xml: any) => {
                     if (e)
                         return f(e);
                     r();
@@ -136,9 +136,9 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
             })
         }
         else if (movement === PanTiltZoomMovement.Continuous) {
-            let x = command.pan;
-            let y = command.tilt;
-            let zoom = command.zoom;
+            let x = command.pan || 0;
+            let y = command.tilt || 0;
+            let zoom = command.zoom || 0;
             if (command.speed?.pan)
                 x *= command.speed.pan;
             if (command.speed?.tilt)
@@ -151,7 +151,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
                     y: command.tilt,
                     zoom: command.zoom,
                     timeout: command.timeout || 1000,
-                }, (e, result, xml) => {
+                }, (e: any, result: any, xml: any) => {
                     if (e)
                         return f(e);
                     r();
@@ -162,7 +162,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
             return new Promise<void>((r, f) => {
                 client.cam.gotoHomePosition({
                     speed: speed,
-                }, (e, result, xml) => {
+                }, (e: any, result: any, xml: any) => {
                     if (e)
                         return f(e);
                     r();
@@ -173,7 +173,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
             return new Promise<void>((r, f) => {
                 client.cam.gotoPreset({
                     preset: command.preset,
-                }, (e, result, xml) => {
+                }, (e: any, result: any, xml: any) => {
                     if (e)
                         return f(e);
                     r();
@@ -188,7 +188,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
                     y: command.tilt,
                     zoom: command.zoom,
                     speed: speed
-                }, (e, result, xml) => {
+                }, (e: any, result: any, xml: any) => {
                     if (e)
                         return f(e);
                     r();
@@ -199,7 +199,7 @@ export class OnvifPtzMixin extends SettingsMixinDeviceBase<Settings> implements 
 
     async getClient() {
         const creds = await this.getCredentials();
-        return connectCameraAPI(creds.ipAndPort, creds.username, creds.password, this.console, undefined)
+        return connectCameraAPI(creds.ipAndPort, creds.username as string, creds.password as string, this.console, undefined as any)
     }
 
     async getCredentials() {
@@ -225,7 +225,7 @@ export class OnvifPTZMixinProvider extends ScryptedDeviceBase implements MixinPr
 
     async canMixin(type: ScryptedDeviceType, interfaces: string[]): Promise<string[]> {
         if (type !== ScryptedDeviceType.Camera || !interfaces.includes(ScryptedInterface.VideoCamera) || !interfaces.includes(ScryptedInterface.Settings))
-            return;
+            return null as any;
 
         return [
             ScryptedInterface.PanTiltZoom,

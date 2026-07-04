@@ -3,7 +3,7 @@ import sdk, { ScryptedInterface, SettingValue } from "@scrypted/sdk";
 import { StorageSettings } from "@scrypted/sdk/storage-settings";
 import { createHAPUsernameStorageSettingsDict } from "./hap-utils";
 
-export const HOMEKIT_MIXIN = 'mixin:@scrypted/homekit';
+export const HOMEKIT_MIXIN = 'mixin:@scrypted/homekit27';
 
 export class HomekitMixin<T> extends SettingsMixinDeviceBase<T> {
     storageSettings = new StorageSettings(this, {

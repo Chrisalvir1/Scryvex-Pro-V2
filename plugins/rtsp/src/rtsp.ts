@@ -33,21 +33,21 @@ export function createRtspMediaStreamOptions(
 
     if (metadata) {
         if (metadata.videoCodec) {
-            vso.video.codec = metadata.videoCodec;
+            vso.video!.codec = metadata.videoCodec;
             // Mirror the raw codec so scoring and remux decisions remain accurate
             // even if a caller normalises the codec string later.
             vso.sourceCodec = metadata.videoCodec;
         }
         if (metadata.audioCodec)
-            vso.audio.codec = metadata.audioCodec;
+            vso.audio!.codec = metadata.audioCodec;
         if (metadata.width)
-            vso.video.width = metadata.width;
+            vso.video!.width = metadata.width;
         if (metadata.height)
-            vso.video.height = metadata.height;
+            vso.video!.height = metadata.height;
         if (metadata.fps)
-            vso.video.fps = metadata.fps;
+            vso.video!.fps = metadata.fps;
         if (metadata.bitrate)
-            vso.video.bitrate = metadata.bitrate;
+            vso.video!.bitrate = metadata.bitrate;
         if (metadata.homekitPreferred != null)
             vso.homekitPreferred = metadata.homekitPreferred;
         if (metadata.directRemux != null)
@@ -88,9 +88,9 @@ export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
      * HomeKit-compatibility scoring to pick the best available stream.
      * Falls back to the first stream so single-stream cameras are unaffected.
      */
-    getDefaultStream(vsos: UrlMediaStreamOptions[]): UrlMediaStreamOptions | undefined {
+    getDefaultStream(vsos: UrlMediaStreamOptions[]): UrlMediaStreamOptions {
         if (!vsos?.length)
-            return undefined;
+            return undefined as any;
 
         // Respect explicit user preference stored by putSettingBase.
         const storedId = this.storage.getItem('defaultStream');
@@ -122,7 +122,11 @@ export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
         // Note the trailing colon.
         // issue: https://github.com/koush/scrypted/issues/134
         const parsedUrl = url.parse(rtspUrl);
-        this.console.log('stream url', rtspUrl);
+        const maskedUrl = url.parse(rtspUrl);
+        if (maskedUrl.auth) {
+            maskedUrl.auth = maskedUrl.auth.split(':')[0] + ':***';
+        }
+        this.console.log('stream url', url.format(maskedUrl));
         const username = this.storage.getItem("username");
         const password = this.storage.getItem("password");
         if (username) {
@@ -150,6 +154,7 @@ export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
             throw new Error('video streams not set up or no longer exists.');
 
         const stringUrl = this.addRtspCredentials(vso.url);
+        this.console.log(`[rtsp] selected stream ${vso.name || vso.id}: codec=${vso.video?.codec || vso.sourceCodec || 'unknown'} audio=${vso.audio?.codec || 'unknown'} directRemux=${!!vso.directRemux}`);
         return this.createMediaStreamUrl(stringUrl, vso);
     }
 
@@ -173,7 +178,91 @@ export class RtspCamera extends CameraBase<UrlMediaStreamOptions> {
                 value: this.getRawVideoStreamOptions()?.map(vso => vso.url),
                 multiple: true,
             },
+            ...await this.getRtspCodecRemuxSettings(),
         ];
+    }
+
+    async getRtspCodecRemuxSettings(): Promise<Setting[]> {
+        const vsos = await this.getVideoStreamOptions().catch(() => []);
+        const diagnostics = vsos?.length
+            ? vsos.map(vso => {
+                const video = vso.video?.codec || vso.sourceCodec || 'unknown';
+                const audio = vso.audio === null ? 'none' : vso.audio?.codec || 'unknown';
+                const size = vso.video?.width && vso.video?.height ? ` ${vso.video.width}x${vso.video.height}` : '';
+                return `${vso.name || vso.id}: video=${video}${size}, audio=${audio}, container=${vso.container || 'unknown'}, directRemux=${vso.directRemux === true ? 'true' : 'false'}`;
+            }).join('\n')
+            : 'No stream options detected yet. Verify the RTSP URL, credentials, and camera network access.';
+
+        return [
+            {
+                subgroup: 'General',
+                key: 'streamDiagnostics',
+                title: 'Detected Streams',
+                type: 'textarea',
+                readonly: true,
+                value: diagnostics,
+                description: 'Codec/remux metadata currently reported by this RTSP camera.',
+            },
+            {
+                subgroup: 'General',
+                key: 'videoCodec',
+                title: 'Video Codec Override',
+                description: 'Use Auto unless detection is wrong. H.264 enables direct remux; H.265/HEVC is kept as HEVC for HomeKit 27.',
+                value: this.storage.getItem('videoCodec') || '',
+                choices: [
+                    '',
+                    'h264',
+                    'h265',
+                ],
+                combobox: true,
+            },
+            {
+                subgroup: 'General',
+                key: 'audioCodec',
+                title: 'Audio Codec Override',
+                description: 'Use Auto unless detection is wrong.',
+                value: this.storage.getItem('audioCodec') || '',
+                choices: [
+                    '',
+                    'aac',
+                    'opus',
+                    'pcm_mulaw',
+                    'pcm_alaw',
+                ],
+                combobox: true,
+            },
+            {
+                subgroup: 'General',
+                key: 'directRemuxMode',
+                title: 'Remux Mode',
+                description: 'Auto is recommended. Force only when the stream is already HomeKit-compatible.',
+                value: this.storage.getItem('directRemuxMode') || 'Auto',
+                choices: [
+                    'Auto',
+                    'Force Direct Remux',
+                    'Disable Direct Remux',
+                ],
+            },
+            {
+                subgroup: 'General',
+                key: 'homekitPreferred',
+                title: 'Prefer This Stream For HomeKit',
+                description: 'Marks this RTSP stream as preferred when HomeKit 27 asks for video.',
+                type: 'boolean',
+                value: this.storage.getItem('homekitPreferred') === 'true',
+            },
+            {
+                subgroup: 'General',
+                key: 'logStreamDiagnostics',
+                title: 'Log Stream Diagnostics',
+                type: 'button',
+                description: 'Writes stream codec/remux metadata to this camera log without exposing RTSP passwords.',
+            },
+        ];
+    }
+
+    async getStreamSettings(): Promise<Setting[]> {
+        return [];
     }
 
     async getOtherSettings(): Promise<Setting[]> {
@@ -431,7 +520,8 @@ export abstract class RtspSmartCamera extends RtspCamera {
             this.constructedVideoStreamOptions = undefined;
         });
 
-        return this.constructedVideoStreamOptions;
+        const ret = await this.constructedVideoStreamOptions;
+        return this.applyHomeKitStreamSettings(ret);
     }
 
     async putSettingBase(key: string, value: SettingValue): Promise<void> {

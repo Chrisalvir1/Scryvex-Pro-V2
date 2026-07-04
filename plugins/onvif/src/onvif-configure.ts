@@ -9,20 +9,20 @@ export function computeInterval(fps: number, govLength: number) {
     return govLength / fps * 1000;
 }
 
-const onvifToFfmpegVideoCodecMap = {
+const onvifToFfmpegVideoCodecMap: { [key: string]: string } = {
     'h264': 'h264',
     'h265': 'h265',
     'hevc': 'h265',
 };
 
-const onvifToFfmpegAudioCodecMap = {
+const onvifToFfmpegAudioCodecMap: { [key: string]: string } = {
     'MP4A-LATM': 'aac',
     'aac': 'aac',
     'PCMU': 'pcm_mulaw',
     'PCMA': 'pcm_alaw',
 };
 
-const ffmpegToOnvifAudioCodecMap = {
+const ffmpegToOnvifAudioCodecMap: { [key: string]: string } = {
     'aac': 'MP4A-LATM',
     'pcm_mulaw': 'PCMU',
     'pcm_alaw': 'PCMA',
@@ -71,7 +71,7 @@ export async function configureCodecs(console: Console, client: OnvifCameraAPI, 
     if (!await client.canConfigureEncoding())
         console.warn('This camera may not support encoding configuration. Proceeding anyways.');
 
-    client.profiles = undefined;
+    client.profiles = undefined as any;
     const profiles: any[] = await client.getProfiles();
     const profile = profiles.find(profile => profile.$.token === options.id);
 
@@ -84,7 +84,7 @@ export async function configureCodecs(console: Console, client: OnvifCameraAPI, 
     const { video: videoOptions, audio: audioOptions } = options;
 
     if (videoOptions?.codec) {
-        let key: string;
+        let key: string | undefined;
         switch (videoOptions.codec) {
             case 'h264':
                 key = 'H264';
@@ -101,7 +101,7 @@ export async function configureCodecs(console: Console, client: OnvifCameraAPI, 
                 vc[key].govLength = videoOptions?.keyframeInterval;
             }
             if (videoOptions?.profile) {
-                let profile: string;
+                let profile: string | undefined;
                 switch (videoOptions.profile) {
                     case 'baseline':
                         profile = 'Baseline';
@@ -157,7 +157,7 @@ export async function configureCodecs(console: Console, client: OnvifCameraAPI, 
     }
 
     const configuredVideo = await client.getVideoEncoderConfigurationOptions(profile.$.token, vc.$.token);
-    client.profiles = undefined;
+    client.profiles = undefined as any;
     const ret: MediaStreamConfiguration = {
         id: options.id,
         video: {

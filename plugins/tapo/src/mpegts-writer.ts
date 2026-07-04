@@ -41,7 +41,7 @@ function uint32(b: number) {
 
 export class MpegTSWriter {
     b: Buffer[] = [];
-    m: number;
+    m!: number;
 
     pid: number[] = [];
     counter: number[] = [];
@@ -49,7 +49,7 @@ export class MpegTSWriter {
     timestamp: number[] = [];
 
     ResetBytes() {
-        const concat = Buffer.concat(this.b);
+        const concat = Buffer.concat(this.b as Uint8Array[]);
         if (concat.length % PacketSize)
             throw new Error('invalid packet size')
         this.b = [];
@@ -87,20 +87,20 @@ export class MpegTSWriter {
     }
 
     MarkChecksum() {
-        const concat = Buffer.concat(this.b);
+        const concat = Buffer.concat(this.b as Uint8Array[]);
         this.m = concat.length;
     }
 
     WriteChecksum() {
-        const concat = Buffer.concat(this.b);
+        const concat = Buffer.concat(this.b as Uint8Array[]);
         const check = concat.subarray(this.m);
 
-        const crc = CRC32.buf(check);
+        const crc = CRC32.buf(check as Uint8Array);
         this.WriteBytes(byte(crc), byte(crc >> 8), byte(crc >> 16), byte(crc >> 24))
     }
 
     FinishPacket() {
-        const concat = Buffer.concat(this.b);
+        const concat = Buffer.concat(this.b as Uint8Array[]);
         const n = concat.length % PacketSize;
         if (n) {
             const empty = Buffer.alloc(PacketSize - n);
@@ -205,7 +205,7 @@ export class MpegTSWriter {
         this.WriteBuffer(payload.subarray(0, pesHeaderSize));
 
         payload = payload.subarray(pesHeaderSize);
-        let counter: number
+        let counter = 0;
 
         while (true) {
             counter++

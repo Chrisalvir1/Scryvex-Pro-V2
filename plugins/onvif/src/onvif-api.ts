@@ -336,22 +336,23 @@ export class OnvifCameraAPI {
     async jpegSnapshot(profileToken?: string, timeout = 10000): Promise<Buffer | undefined> {
         if (!profileToken)
             profileToken = await this.getMainProfileToken();
-        if (!this.snapshotUrls.has(profileToken)) {
+        const pToken = profileToken || '';
+        if (!this.snapshotUrls.has(pToken)) {
             try {
-                const result = await promisify(cb => this.cam.getSnapshotUri({ profileToken }, cb)) as any;
+                const result = await promisify(cb => this.cam.getSnapshotUri({ profileToken: pToken }, cb)) as any;
                 const url = result.uri;
-                this.snapshotUrls.set(profileToken, url);
+                this.snapshotUrls.set(pToken, url);
             }
             catch (e) {
                 if ((e as any).message && (e as any).message.indexOf('ActionNotSupported') !== -1) {
-                    this.snapshotUrls.set(profileToken, undefined);
+                    this.snapshotUrls.set(pToken, undefined);
                 }
                 else {
                     throw e;
                 }
             }
         }
-        const snapshotUri = this.snapshotUrls.get(profileToken);
+        const snapshotUri = this.snapshotUrls.get(pToken);
         if (!snapshotUri)
             return;
 

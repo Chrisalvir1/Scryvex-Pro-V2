@@ -126,16 +126,15 @@ export function checkCompatibleCodec(console: Console, device: ScryptedDevice, v
         console.warn('=============================================================================');
         return;
     }
-    const isDefinitelyNotH264 = videoCodec && videoCodec.toLowerCase().indexOf('h264') === -1;
-    if (isDefinitelyNotH264) {
-        const str =
-            console.error('=============================================================================');
-        console.error(`${device.name} video codec must be h264 but is ${videoCodec}.`);
-        console.error('This stream may fail. Read the instructions in the HomeKit Plugin');
-        console.error('to properly configure your camera codec.');
+    const lower = videoCodec.toLowerCase();
+    const compatible = lower.includes('h264') || lower.includes('h265') || lower.includes('hevc');
+    if (!compatible) {
+        console.error('=============================================================================');
+        console.error(`${device.name} video codec must be h264 or h265/hevc for HomeKit 27, but is ${videoCodec}.`);
+        console.error('This stream may fail. Configure the camera codec or enable transcoding.');
         console.error('Stream compatibility can be diagnosed by enabling Transcoding Debug Mode.');
         console.error('=============================================================================');
 
-        log.a(`${device.name} video codec must be h264 but is ${videoCodec}. This stream may fail. Read the instructions in the HomeKit Plugin to properly configure your camera codec.`);
+        log.a(`${device.name} video codec must be h264 or h265/hevc for HomeKit 27, but is ${videoCodec}. This stream may fail until the camera codec or transcoding is configured.`);
     }
 }

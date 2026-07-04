@@ -126,7 +126,15 @@ if (fs.existsSync(readme)) {
     zip.addFile('README.md', Buffer.from(readmeText));
 }
 
-const NODE_PATH = path.resolve(__dirname, '..', '..', '..', 'node_modules');
+const SDK_ROOT = path.resolve(__dirname, '..', '..', '..');
+const WORKSPACE_ROOT = path.resolve(SDK_ROOT, '..');
+const NODE_PATHS = [
+    path.resolve(cwd, 'node_modules'),
+    path.resolve(SDK_ROOT, 'node_modules'),
+    path.resolve(WORKSPACE_ROOT, 'common', 'node_modules'),
+    path.resolve(WORKSPACE_ROOT, 'server', 'node_modules'),
+].filter(p => fs.existsSync(p));
+const NODE_PATH = NODE_PATHS.join(path.delimiter);
 
 process.env.NODE_PATH = NODE_PATH;
 require('module').Module._initPaths();
@@ -139,6 +147,7 @@ interface WebpackConfig {
     };
     resolve?: {
         alias?: Record<string, string>;
+        modules?: string[];
     };
 }
 
@@ -245,6 +254,10 @@ async function pack(): Promise<void> {
         
         config.resolve = config.resolve || {};
         config.resolve.alias = config.resolve.alias || {};
+        config.resolve.modules = Array.from(new Set([
+            ...NODE_PATHS,
+            ...(config.resolve.modules || ['node_modules']),
+        ]));
         
         for (const opt of optionalDependencies) {
             const t = tmp.tmpNameSync({

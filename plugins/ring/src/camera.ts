@@ -264,6 +264,8 @@ export class RingCameraDevice extends ScryptedDeviceBase implements DeviceProvid
 
         this.stopSession();
 
+        const requestedStream = options?.id || 'default';
+        this.console.log(`[ring] starting live stream for ${this.name || this.id}: requested=${requestedStream}, container=${this.useRtsp ? 'rtsp' : 'sdp'}, video=h264, audio=pcm_mulaw, directRemux=false`);
 
         const { clientPromise: playbackPromise, port: playbackPort, url: clientUrl } = await listenZeroSingleClient('127.0.0.1');
 
@@ -461,7 +463,11 @@ export class RingCameraDevice extends ScryptedDeviceBase implements DeviceProvid
     getSipMediaStreamOptions(): ResponseMediaStreamOptions {
         const useRtsp = this.useRtsp;
 
-        return {
+        const ret: ResponseMediaStreamOptions & {
+            sourceCodec?: string;
+            directRemux?: boolean;
+            homekitPreferred?: boolean;
+        } = {
             id: 'sip',
             name: 'SIP',
             // this stream is NOT scrypted blessed due to wackiness in the h264 stream.
@@ -484,9 +490,13 @@ export class RingCameraDevice extends ScryptedDeviceBase implements DeviceProvid
                 // this is a hint to let homekit, et al, know that it's PCM audio and needs transcoding.
                 codec: 'pcm_mulaw',
             },
+            sourceCodec: 'h264',
+            directRemux: false,
+            homekitPreferred: true,
             source: 'cloud',
             userConfigurable: false,
         };
+        return ret;
     }
 
     async getVideoStreamOptions(): Promise<ResponseMediaStreamOptions[]> {

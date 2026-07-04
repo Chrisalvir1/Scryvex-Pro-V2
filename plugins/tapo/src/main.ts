@@ -13,7 +13,7 @@ class TapoIntercomMixin extends SettingsMixinDeviceBase<VideoCamera & Settings> 
             type: 'password',
         }
     });
-    client: Promise<TapoAPI>;
+    client!: Promise<TapoAPI> | undefined;
 
     async startIntercom(media: MediaObject): Promise<void> {
         const ffmpegInput = await sdk.mediaManager.convertMediaObjectToJSON<FFmpegInput>(media, ScryptedMimeTypes.FFmpegInput);
@@ -24,7 +24,7 @@ class TapoIntercomMixin extends SettingsMixinDeviceBase<VideoCamera & Settings> 
 
         if (!this.storageSettings.values.cloudPassword) {
             const error = 'Two Way Audio failed. Tapo Cloud password is unconfigured on ' + this.name;
-            sdk.log.a(error);
+            sdk.log?.a(error);
             throw error;
         }
 
@@ -83,12 +83,12 @@ class TapoIntercomMixin extends SettingsMixinDeviceBase<VideoCamera & Settings> 
 class TapoIntercom extends ScryptedDeviceBase implements MixinProvider {
     async canMixin(type: ScryptedDeviceType, interfaces: string[]): Promise<string[]> {
         if (type !== ScryptedDeviceType.Doorbell && type !== ScryptedDeviceType.Camera)
-            return;
+            return [];
         if (!interfaces.includes(ScryptedInterface.VideoCamera) || !interfaces.includes(ScryptedInterface.Settings)
             // this is currently a necessary hack to make sure the intercom gets advertised
             // before the homekit and webrtc plugins mixin it.
             || !interfaces.includes(ScryptedInterface.Intercom)) {
-            return;
+            return [];
 
         }
         return [

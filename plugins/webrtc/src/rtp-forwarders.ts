@@ -59,7 +59,7 @@ function createPacketDelivery(track: RtpTrack) {
 
 function attachTrackDgram(track: RtpTrack, server: dgram.Socket, codec: () => string | undefined) {
     const delivery = createPacketDelivery(track);
-    server?.on('message', rtp => delivery(rtp, codec() || ''));
+    server?.on('message', (rtp: any) => delivery(rtp, codec() || ''));
 }
 
 async function setupRtspClient(console: Console, rtspClient: RtspClient, channel: number, section: MSection, rtspClientForceTcp: boolean, deliver: ReturnType<typeof createPacketDelivery>) {
@@ -69,7 +69,7 @@ async function setupRtspClient(console: Console, rtspClient: RtspClient, channel
             const result = await rtspClient.setup({
                 type: 'udp',
                 path: section.control,
-                onRtp: (rtspHeader, rtp) => deliver(rtp, codec || ''),
+                onRtp: (rtspHeader: any, rtp: any) => deliver(rtp, codec || ''),
             });
             // console.log('rtsp/udp', section.codec, result);
             return false;
@@ -83,7 +83,7 @@ async function setupRtspClient(console: Console, rtspClient: RtspClient, channel
         type: 'tcp',
         port: channel,
         path: section.control,
-        onRtp: (rtspHeader, rtp) => deliver(rtp, codec || ''),
+        onRtp: (rtspHeader: any, rtp: any) => deliver(rtp, codec || ''),
     });
     // console.log('rtsp/tcp', section.codec);
     return true;
@@ -168,8 +168,8 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
     });
     const videoSectionDeferred = new Deferred<MSection | undefined>();
     const audioSectionDeferred = new Deferred<MSection | undefined>();
-    videoSectionDeferred.promise.then(s => s && video?.onMSection?.(s));
-    audioSectionDeferred.promise.then(s => s && audio?.onMSection?.(s));
+    videoSectionDeferred.promise.then((s: any) => s && video?.onMSection?.(s));
+    audioSectionDeferred.promise.then((s: any) => s && audio?.onMSection?.(s));
     let allowAudioTranscoderExit = false;
 
     if (ffmpegInput.url
@@ -193,7 +193,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
             let channel = 0;
 
             if (video) {
-                videoSection = parsedSdp.msections.find(msection => msection.type === 'video' && (msection.codec === videoCodec || videoCodec === 'copy'));
+                videoSection = parsedSdp.msections.find((msection: any) => msection.type === 'video' && (msection.codec === videoCodec || videoCodec === 'copy'));
                 // maybe fallback to udp forwarding/transcoding?
                 if (!videoSection)
                     throw new Error(`advertised video codec ${videoCodec} not found in sdp.`);
@@ -209,7 +209,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                 setup.add(videoSection);
 
                 for (const alternateCodec of video.alternateCodecs|| []) {
-                    const section = parsedSdp.msections.find(msection => msection.type === 'video' && msection.codec === alternateCodec);
+                    const section = parsedSdp.msections.find((msection: any) => msection.type === 'video' && msection.codec === alternateCodec);
                     if (!section || setup.has(section))
                         continue;
                     setup.add(section);
@@ -225,8 +225,8 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                 videoSectionDeferred.resolve(undefined);
             }
 
-            const audioSections = parsedSdp.msections.filter(msection => msection.type === 'audio');
-            let audioSection = audioSections.find(msection => (msection.codec && msection.codec === audioCodec) || audioCodec === 'copy');
+            const audioSections = parsedSdp.msections.filter((msection: any) => msection.type === 'audio');
+            let audioSection = audioSections.find((msection: any) => (msection.codec && msection.codec === audioCodec) || audioCodec === 'copy');
             if (!audioSection) {
                 for (const check of audioSections) {
                     if (await audio?.negotiate?.(check) === true) {
@@ -251,7 +251,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                     setup.add(audioSection);
 
                     for (const alternateCodec of audio.alternateCodecs || []) {
-                        const section = parsedSdp.msections.find(msection => msection.type === 'audio' && msection.codec === alternateCodec);
+                        const section = parsedSdp.msections.find((msection: any) => msection.type === 'audio' && msection.codec === alternateCodec);
                         if (!section || setup.has(section))
                             continue;
                         setup.add(section);
@@ -267,7 +267,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                     // console.log('audio codec transcoding:', audio.codecCopy);
 
                     const newSdp = parseSdp(rtspSdp);
-                    const audioSection = newSdp.msections.find(msection => msection.type === 'audio');
+                    const audioSection = newSdp.msections.find((msection: any) => msection.type === 'audio');
 
                     if (!audioSection) {
                         delete rtpTracks.audio;
@@ -275,17 +275,17 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                         audioSectionDeferred.resolve(undefined);
                     }
                     else {
-                        newSdp.msections = newSdp.msections.filter(msection => msection === audioSection);
+                        newSdp.msections = newSdp.msections.filter((msection: any) => msection === audioSection);
                         const audioSdp = addTrackControls(replaceSectionPort(newSdp.toSdp(), 'audio', 0));
                         const parsedAudioSdp = parseSdp(audioSdp);
-                        const audioControl = parsedAudioSdp.msections.find(msection => msection.type === 'audio')?.control || '';
+                        const audioControl = parsedAudioSdp.msections.find((msection: any) => msection.type === 'audio')?.control || '';
 
                         let firstPacket = true;
                         let adts = false;
 
                         // if the rtsp client is over tcp, then the restream server must also be tcp, as
                         // the rtp packets (which can be a max of 64k) may be too large for udp.
-                        const clientIsTcp = await setupRtspClient(console, rtspClient, channel, audioSection, false, rtp => {
+                        const clientIsTcp = await setupRtspClient(console, rtspClient, channel, audioSection, false, (rtp: any) => {
                             // live555 sends rtp aac packets without AU header followed by ADTS packets (which contain codec info)
                             // which ffmpeg can not handle.
                             // the solution is to demux the adts and send that to ffmpeg raw.
@@ -332,15 +332,15 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
 
                         const audioClient = await listenZeroSingleClient('127.0.0.1');
                         let audioPipe: Writable;
-                        killDeferred.promise.finally(() => audioClient.clientPromise.then(client => client.destroy()));
+                        killDeferred.promise.finally(() => audioClient.clientPromise.then((client: any) => client.destroy()));
                         let rtspServer: RtspServer;
-                        audioClient.clientPromise.then(async client => {
+                        audioClient.clientPromise.then(async (client: any) => {
                             const r = new RtspServer(client, audioSdp, !clientIsTcp);
                             killDeferred.promise.finally(() => r.destroy());
                             await r.handlePlayback();
                             rtspServer = r;
                         })
-                            .catch(e => {
+                            .catch((e: any) => {
                                 if (!killDeferred.finished)
                                     killDeferred.reject(e);
                             });
@@ -378,8 +378,8 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
     const reportTranscodedSections = (sdp: string) => {
         sdpDeferred.resolve(sdp);
         const parsedSdp = parseSdp(sdp);
-        const videoSection = parsedSdp.msections.find(msection => msection.type === 'video');
-        const audioSection = parsedSdp.msections.find(msection => msection.type === 'audio');
+        const videoSection = parsedSdp.msections.find((msection: any) => msection.type === 'video');
+        const audioSection = parsedSdp.msections.find((msection: any) => msection.type === 'audio');
 
         rtpVideoCodec = videoSection?.codec;
         rtpAudioCodec = audioSection?.codec;
@@ -471,7 +471,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                 `rtsp://127.0.0.1:${serverPort.port}`
             );
 
-            serverPort.clientPromise.then(async (client) => {
+            serverPort.clientPromise.then(async (client: any) => {
                 client.on('close', () => killDeferred.resolve(undefined));
                 killDeferred.promise.finally(() => client.destroy());
 
@@ -519,7 +519,7 @@ export async function startRtpForwarderProcess(console: Console, ffmpegInput: FF
                     }
                 }
             })
-                .catch(e => {
+                .catch((e: any) => {
                     if (!killDeferred.finished)
                         killDeferred.reject(e);
                 });

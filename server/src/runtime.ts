@@ -1091,11 +1091,13 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
 
         for (const plugin of plugins) {
             try {
-                const pluginDevice = this.findPluginDevice(plugin._id)!;
-                setState(pluginDevice, ScryptedInterfaceProperty.info, {
-                    manufacturer: plugin.packageJson.name,
-                    version: plugin.packageJson.version,
-                } as DeviceInformation);
+                const pluginDevice = this.findPluginDevice(plugin._id);
+                if (pluginDevice) {
+                    setState(pluginDevice, ScryptedInterfaceProperty.info, {
+                        manufacturer: plugin.packageJson.name,
+                        version: plugin.packageJson.version,
+                    } as DeviceInformation);
+                }
                 this.loadPlugin(plugin);
             }
             catch (e) {
