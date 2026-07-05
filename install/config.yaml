@@ -1,4 +1,15 @@
 # Home Assistant Addon Configuration
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  AISLADORES DE INSTANCIA — NO MODIFICAR ESTOS 4 VALORES        ║
+# ║  Garantizan que esta instancia SIEMPRE use su propia BD         ║
+# ║  aunque haya otro Scrypted oficial corriendo en el mismo HA     ║
+# ╠══════════════════════════════════════════════════════════════════╣
+# ║  slug: scrypted_pro_gc           → ID único en HA Supervisor    ║
+# ║  SCRYPTED_VOLUME: scrypted_gc_data  → BD/credenciales exclusiva ║
+# ║  SCRYPTED_NVR_VOLUME: scrypted_gc_nvr → Grabaciones exclusivas  ║
+# ║  image: ghcr.io/chrisalvir1/scrypted  → Registry propio        ║
+# ║         (NO ghcr.io/koush/scrypted)  → versión controlada      ║
+# ╚══════════════════════════════════════════════════════════════════╝
 name: Scrypted Pro G&C
 version: "v0.155.7-noble-full"
 slug: scrypted_pro_gc
@@ -20,10 +31,13 @@ gpio: true
 usb: true
 uart: true
 video: true
+# ─── REGISTRY PROPIO ─ nunca cambiar a ghcr.io/koush/scrypted ────────
 image: "ghcr.io/chrisalvir1/scrypted"
 environment:
   SCRYPTED_INSTALL_PLUGIN: "@scrypted/homeassistant"
+  # ─── AISLADOR #1: Volumen de datos exclusivo ──────────────────────
   SCRYPTED_VOLUME: "/data/scrypted_gc_data"
+  # ─── AISLADOR #2: Volumen NVR exclusivo ───────────────────────────
   SCRYPTED_NVR_VOLUME: "/data/scrypted_gc_nvr"
   SCRYPTED_ADMIN_ADDRESS: "172.30.32.2"
   SCRYPTED_ADMIN_USERNAME: "homeassistant"
