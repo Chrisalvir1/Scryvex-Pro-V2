@@ -96,9 +96,10 @@ RUN --mount=type=cache,target=/root/.npm \
 RUN echo "BUILDING_CORE" && cd /scrypted-src/plugins/core && npm run build \
     && npm pack @scrypted/core@0.3.147 \
     && tar -xzf scrypted-core-*.tgz \
-    && unzip package/dist/plugin.zip "fs/dist/*" -d . \
-    && mv fs/dist dist \
-    && rm -rf package scrypted-core-*.tgz fs \
+    && unzip package/dist/plugin.zip "fs/dist/*" -d /tmp/scrypted-ui-extract \
+    && rm -rf dist \
+    && mv /tmp/scrypted-ui-extract/fs/dist dist \
+    && rm -rf package scrypted-core-*.tgz /tmp/scrypted-ui-extract \
     || (echo "=== BUILD FAILED IN plugins/core ===" || true)
 
 
