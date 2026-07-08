@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.npm \
     cd /scrypted-src/plugins/core && npm install
 RUN echo "BUILDING_CORE" && cd /scrypted-src/plugins/core && npm run build
 RUN cd /scrypted-src/plugins/core && \
-    test -f dist/index.html || (cp -r fs/dist/* dist/ && echo "UI copiada desde fs/dist")
+    test -f dist/index.html || (cp -r /scrypted-src/packages/client/dist/* dist/ && echo "UI copiada desde client/dist")
 
 
 # WebRTC dependencies (werift - heavy, rarely changes)

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2] - 2026-07-07
+
+### Fixed
+- Revertido `typescript` a la versión estable 5.6.2 y corregida la compilación del Dockerfile y UI. La versión "7" de TS solicitada previamente causaba un fallo en la instalación de Node.js (Internal Plugin Error: @scrypted/core)
+- Forzado el disparador de GitHub Actions para asegurar la construcción del contenedor Docker en la rama de Scryvex Pro.
+
 ## [1.0.1] - 2026-07-07
 
 ### Fixed

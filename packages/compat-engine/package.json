@@ -10,6 +10,6 @@
       "@scryvex/camera-core": "*"
    },
    "devDependencies": {
-      "typescript": "^7.0.1-rc"
+      "typescript": "^5.6.2"
    }
 }
