@@ -39,7 +39,11 @@
    },
    "dependencies": {
       "@scrypted/common": "file:../../common",
-      "@scrypted/sdk": "file:../../sdk"
+      "@scrypted/sdk": "file:../../sdk",
+      "@scryvex/camera-core": "file:../../packages/camera-core",
+      "@scryvex/compat-engine": "file:../../packages/compat-engine",
+      "@scryvex/runtime": "file:../../packages/runtime",
+      "@scryvex/registry": "file:../../packages/registry"
    },
    "devDependencies": {
       "@types/node": "^20.10.8",

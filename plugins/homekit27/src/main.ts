@@ -1,3 +1,8 @@
+import "@scryvex/camera-core";
+import "@scryvex/compat-engine";
+import "@scryvex/runtime";
+import "@scryvex/registry";
+
 import { SettingsMixinDeviceOptions } from '@scrypted/common/src/settings-mixin';
 import sdk, { DeviceProvider, MixinProvider, Online, ScryptedDeviceBase, ScryptedDeviceType, ScryptedInterface, ScryptedInterfaceProperty, Setting, Settings, WritableDeviceState } from '@scrypted/sdk';
 import { StorageSettings } from "@scrypted/sdk/storage-settings";

@@ -1,3 +1,8 @@
+import "@scryvex/camera-core";
+import "@scryvex/compat-engine";
+import "@scryvex/runtime";
+import "@scryvex/registry";
+
 import sdk, { AdoptDevice, Device, DeviceCreatorSettings, DeviceDiscovery, DeviceInformation, DiscoveredDevice, Intercom, MediaObject, MediaStreamOptions, ObjectDetectionTypes, ObjectDetector, PictureOptions, Reboot, RequestPictureOptions, ScryptedDeviceType, ScryptedInterface, ScryptedNativeId, Setting, SettingValue, VideoCamera, VideoCameraConfiguration, VideoTextOverlay, VideoTextOverlays } from "@scrypted/sdk";
 import { AddressInfo } from "net";
 import onvif from 'onvif';

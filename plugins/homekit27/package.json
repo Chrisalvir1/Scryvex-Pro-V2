@@ -43,7 +43,11 @@
       "lodash": "^4.17.21",
       "mkdirp": "^3.0.1",
       "patch-package": "^8.0.1",
-      "qrcode-svg": "^1.1.0"
+      "qrcode-svg": "^1.1.0",
+      "@scryvex/camera-core": "file:../../packages/camera-core",
+      "@scryvex/compat-engine": "file:../../packages/compat-engine",
+      "@scryvex/runtime": "file:../../packages/runtime",
+      "@scryvex/registry": "file:../../packages/registry"
    },
    "devDependencies": {
       "@scrypted/common": "file:../../common",

@@ -43,7 +43,11 @@
       "base-64": "^1.0.0",
       "md5": "^2.3.0",
       "onvif": "^0.7.4",
-      "xml2js": "^0.6.2"
+      "xml2js": "^0.6.2",
+      "@scryvex/camera-core": "file:../../packages/camera-core",
+      "@scryvex/compat-engine": "file:../../packages/compat-engine",
+      "@scryvex/runtime": "file:../../packages/runtime",
+      "@scryvex/registry": "file:../../packages/registry"
    },
    "devDependencies": {
       "@types/debug": "^4.1.13",
