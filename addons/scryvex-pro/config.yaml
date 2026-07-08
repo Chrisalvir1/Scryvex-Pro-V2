@@ -1,4 +1,4 @@
-name: Scrypted Pro
+name: Scryvex Pro
 version: "1.0.0"
 slug: scryvex_pro
 description: Scrypted personalizado con remux directo para HomeKit
@@ -19,5 +19,5 @@ schema: {}
 ingress: true
 ingress_port: 11080
 panel_icon: mdi:cctv
-panel_title: Scrypted Pro
+panel_title: Scryvex Pro
 webui: http://[HOST]:[PORT:11080]/

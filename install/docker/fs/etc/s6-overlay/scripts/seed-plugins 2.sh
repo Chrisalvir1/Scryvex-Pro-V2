@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scrypted Pro - First-boot plugin seeder
+# Scryvex Pro - First-boot plugin seeder
 # Copies our custom-compiled plugins into the Scrypted volume so they
 # are used instead of the official NPM versions from first launch.
 
@@ -10,11 +10,11 @@ SEED_FLAG="$SCRYPTED_VOLUME/.gc_plugins_seeded"
 
 # Only seed once - skip if already done
 if [ -f "$SEED_FLAG" ]; then
-    echo "[Scrypted Pro] Custom plugins already seeded, skipping."
+    echo "[Scryvex Pro] Custom plugins already seeded, skipping."
     exit 0
 fi
 
-echo "[Scrypted Pro] First boot detected - seeding custom plugins..."
+echo "[Scryvex Pro] First boot detected - seeding custom plugins..."
 
 mkdir -p "$PLUGINS_DIR"
 
@@ -42,7 +42,7 @@ for plugin_dir in "$CUSTOM_PLUGINS_DIR"/*/; do
     fi
 
     dest="$PLUGINS_DIR/$pkg_id"
-    echo "[Scrypted Pro] Seeding plugin: $pkg_id -> $dest"
+    echo "[Scryvex Pro] Seeding plugin: $pkg_id -> $dest"
     mkdir -p "$dest"
     cp "$pkg_json" "$dest/package.json"
     [ -d "$plugin_dir/dist" ] && cp -r "$plugin_dir/dist" "$dest/dist"
@@ -54,11 +54,11 @@ done
 core_ui_src="$CUSTOM_PLUGINS_DIR/core/dist"
 core_ui_dest="$PLUGINS_DIR/@scrypted/core/dist"
 if [ -d "$core_ui_src" ]; then
-    echo "[Scrypted Pro] Seeding core UI: $core_ui_src -> $core_ui_dest"
+    echo "[Scryvex Pro] Seeding core UI: $core_ui_src -> $core_ui_dest"
     mkdir -p "$core_ui_dest"
     cp -r "$core_ui_src/." "$core_ui_dest/"
 fi
 
 # Mark as seeded so we don't repeat on every boot
-echo "Seeded by Scrypted Pro on $(date)" > "$SEED_FLAG"
-echo "[Scrypted Pro] Plugin seeding complete!"
+echo "Seeded by Scryvex Pro on $(date)" > "$SEED_FLAG"
+echo "[Scryvex Pro] Plugin seeding complete!"

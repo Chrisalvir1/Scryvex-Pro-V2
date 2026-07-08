@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scrypted Pro - Version-aware plugin seeder
+# Scryvex Pro - Version-aware plugin seeder
 # Copies our custom-compiled plugins into the Scrypted volume so they
 # are used instead of the official NPM versions.
 # Re-seeds automatically whenever the addon image version changes.
@@ -26,14 +26,14 @@ fi
 
 # Skip re-seed only when the version matches exactly
 if [ -f "$SEED_FLAG" ] && [ "$SEEDED_VERSION" = "$CURRENT_VERSION" ]; then
-    echo "[Scrypted Pro] Plugins already seeded for version $CURRENT_VERSION, skipping."
+    echo "[Scryvex Pro] Plugins already seeded for version $CURRENT_VERSION, skipping."
     exit 0
 fi
 
 if [ -n "$SEEDED_VERSION" ]; then
-    echo "[Scrypted Pro] Image updated: $SEEDED_VERSION -> $CURRENT_VERSION. Re-seeding plugins..."
+    echo "[Scryvex Pro] Image updated: $SEEDED_VERSION -> $CURRENT_VERSION. Re-seeding plugins..."
 else
-    echo "[Scrypted Pro] First boot detected - seeding custom plugins..."
+    echo "[Scryvex Pro] First boot detected - seeding custom plugins..."
 fi
 
 mkdir -p "$PLUGINS_DIR"
@@ -62,7 +62,7 @@ for plugin_dir in "$CUSTOM_PLUGINS_DIR"/*/; do
     fi
 
     dest="$PLUGINS_DIR/$pkg_id"
-    echo "[Scrypted Pro] Seeding plugin: $pkg_id -> $dest"
+    echo "[Scryvex Pro] Seeding plugin: $pkg_id -> $dest"
     mkdir -p "$dest"
     cp "$pkg_json" "$dest/package.json"
     [ -d "$plugin_dir/dist" ] && cp -r "$plugin_dir/dist" "$dest/dist"
@@ -74,11 +74,11 @@ done
 core_ui_src="$CUSTOM_PLUGINS_DIR/core/dist"
 core_ui_dest="$PLUGINS_DIR/@scrypted/core/dist"
 if [ -d "$core_ui_src" ]; then
-    echo "[Scrypted Pro] Seeding core UI: $core_ui_src -> $core_ui_dest"
+    echo "[Scryvex Pro] Seeding core UI: $core_ui_src -> $core_ui_dest"
     mkdir -p "$core_ui_dest"
     cp -r "$core_ui_src/." "$core_ui_dest/"
 fi
 
 # Mark as seeded with current version so next boot can detect upgrades
-printf "Seeded by Scrypted Pro on $(date)\nversion=%s\n" "$CURRENT_VERSION" > "$SEED_FLAG"
-echo "[Scrypted Pro] Plugin seeding complete for version $CURRENT_VERSION!"
+printf "Seeded by Scryvex Pro on $(date)\nversion=%s\n" "$CURRENT_VERSION" > "$SEED_FLAG"
+echo "[Scryvex Pro] Plugin seeding complete for version $CURRENT_VERSION!"

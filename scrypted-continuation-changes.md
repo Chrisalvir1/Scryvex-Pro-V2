@@ -1,4 +1,4 @@
-# Scrypted Pro: Migración a TypeScript 7 RC - Hand-Off para IA
+# Scryvex Pro: Migración a TypeScript 7 RC - Hand-Off para IA
 
 Este documento detalla el estado exacto de la migración del repositorio a TypeScript 7.0.1 RC. Su objetivo es brindar contexto rápido, logros alcanzados y un mapa de ruta claro para cualquier agente IA o desarrollador que tome el proyecto a partir de este punto.
 
@@ -78,7 +78,7 @@ Si eres la próxima IA en este proyecto, tus prioridades son:
 * **La Tarea:** Deberás tomar los plugins uno por uno, habilitar `"strict": true` en su `tsconfig.json` y arreglar pacientemente la lógica subyacente. Los errores más comunes que encontrarás son `TS18048` (objeto posiblemente undefined) y `TS7006` (callback param inferido como any). 
 
 ### 2. Retiro progresivo de `tools/typescript-compat/register-fallback.cjs`
-* **El Problema:** Scrypted Pro todavía depende de Webpack y `ts-loader` para compilar los binarios de los plugins, y estos requieren la API antigua de TS6. 
+* **El Problema:** Scryvex Pro todavía depende de Webpack y `ts-loader` para compilar los binarios de los plugins, y estos requieren la API antigua de TS6. 
 * **La Tarea:** Deberás vigilar y evaluar en un futuro si se puede actualizar `ts-loader` (o la cadena de empaquetado) a una versión nativa compatible con TS7. Cuando esto suceda, debes borrar el fallback y su invocación en `sdk/src/bin/scrypted-webpack.ts`.
 
 ### 3. Pruebas de Integración E2E (End-to-End)
@@ -99,7 +99,7 @@ Fecha de despliegue: 2026-07-04.
    - `onvif-configure.ts` ya priorizaba H.264 para `directRemux=true` y lo marcaba como `homekitPreferred`. H.265/HEVC no fue disfrazado como H.264, conservando los identificadores oficiales requeridos para HKSV 2026.
    - En RTSP, la contraseña fue enmascarada en los logs (`rtsp://usuario:***@ip/`) para cumplir las normas de seguridad dictadas.
 4. **Despliegue y Validación en Vivo (Raspberry Pi):**
-   - Vía SSH (`192.168.110.147`), inspeccionamos la estructura `docker inspect addon_07a55e87_scrypted_pro_gc`.
+   - Vía SSH (`192.168.110.147`), inspeccionamos la estructura `docker inspect addon_07a55e87_scryvex_pro_gc`.
    - Reemplazamos los plugins (`homekit27`, `webrtc27`, `rtsp`, `onvif`, `core`) en sus rutas activas dentro de `/scrypted-src/plugins/.../out/plugin.zip` y reiniciamos el contenedor.
    - **Los logs confirmaron el funcionamiento perfecto:** Los plugins levantaron, las cámaras cargaron ("CAMARA DE RECAMARA" y "PRUEBA @") y el sistema activó exitosamente "stream copy" (directRemux) para H.264. 
    - La transcripción a Opus ocurrió sólo bajo el escenario de passthrough, logueando claramente `audio: transcode → opus`.
@@ -131,7 +131,7 @@ Fecha de despliegue: 2026-07-04.
 - Vía SSH (`hassio`), se inyectó un script `expect` para sortear restricciones.
 - Se eliminó la base de datos limpia de `/data/scrypted_gc_data/scrypted.db/` dentro del contenedor.
 - Se transmitió el tarball vía socket SSH y se descomprimió directamente en el volumen del contenedor.
-- Se reinició el contenedor `addon_07a55e87_scrypted_pro_gc`, cargando correctamente el state real del usuario.
+- Se reinició el contenedor `addon_07a55e87_scryvex_pro_gc`, cargando correctamente el state real del usuario.
 
 ### 4. Corrección de la UI (`App.tsx`)
 - **Filtro de Cámaras:** Actualizado a `d.interfaces?.includes('VideoCamera') || d.interfaces?.includes('Camera') || d.type === 'Camera'`. Las cámaras reales del backup ahora son visibles.
@@ -224,14 +224,14 @@ Se desplegaron con backup previo los `plugin.zip` compilados de:
 * `@scrypted/rtsp`
 * `@scrypted/webrtc27`
 
-Rutas actualizadas dentro del contenedor `addon_07a55e87_scrypted_pro_gc`:
+Rutas actualizadas dentro del contenedor `addon_07a55e87_scryvex_pro_gc`:
 
 * `/scrypted-src/plugins/<plugin>/out/plugin.zip`
 * `/data/scrypted_gc_data/plugins/@scrypted/<plugin>/out/plugin.zip`
 * Para `homekit27` y `webrtc27`, tambien se actualizo la copia `zip/plugin.zip` cuando existia.
 * Para `core`, tambien se sincronizo `/scrypted-src/plugins/core/dist/plugin.zip`.
 
-Despues del despliegue se reinicio el addon con `docker restart addon_07a55e87_scrypted_pro_gc`.
+Despues del despliegue se reinicio el addon con `docker restart addon_07a55e87_scryvex_pro_gc`.
 
 ### Validacion despues del reinicio
 Los logs del addon confirman que el contenedor levanto y volvio a registrar camaras del backup, incluyendo:
@@ -301,7 +301,7 @@ Validacion:
 * Se desplego nuevamente `@scrypted/rtsp` en:
   - `/scrypted-src/plugins/rtsp/out/plugin.zip`
   - `/data/scrypted_gc_data/plugins/@scrypted/rtsp/out/plugin.zip`
-* Se reinicio `addon_07a55e87_scrypted_pro_gc`.
+* Se reinicio `addon_07a55e87_scryvex_pro_gc`.
 * Se verifico dentro del zip activo en Raspberry que existen los textos `Detected Streams`, `Remux Mode` y `Video Codec Override`.
 
 ### Hotfix forzar UI nueva (2026-07-04)
@@ -328,7 +328,7 @@ Validacion:
   - `/scrypted-src/plugins/core/out/plugin.zip`
   - `/scrypted-src/plugins/core/dist/plugin.zip`
   - `/data/scrypted_gc_data/plugins/@scrypted/core/out/plugin.zip`
-* Se reinicio `addon_07a55e87_scrypted_pro_gc`.
+* Se reinicio `addon_07a55e87_scryvex_pro_gc`.
 * Se verifico dentro del zip activo en Raspberry que `fs/dist/index.html` apunta al bundle nuevo `index-qHrh31xM.js` y contiene `SCRYPTED_PRO_FORCE_NEW_UI`.
 
 ### Hotfix final ruta activa Home Assistant (2026-07-04)
