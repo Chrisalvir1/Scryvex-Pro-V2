@@ -1,3 +1,0 @@
-python-engineio[asyncio_client]
-aiohttp
-aiodns
