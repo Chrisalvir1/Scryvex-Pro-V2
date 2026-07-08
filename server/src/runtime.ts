@@ -547,7 +547,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
             return undefined;
         installedSet.add(pkg);
 
-        // Local custom plugin intercept logic for Scrypted Pro G&C
+        // Local custom plugin intercept logic for Scrypted Pro
         // Uses SCRYPTED_CUSTOM_PLUGINS_DIR env var (set to /scrypted-src/plugins in Docker)
         // to locate custom-compiled plugins instead of downloading from NPM.
         const pluginBaseName = pkg.replace(/^@scrypted\//, '');
@@ -555,7 +555,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
         const pluginDir = path.join(customPluginsBase, pluginBaseName);
         
         if (fs.existsSync(pluginDir)) {
-            console.log('Scrypted Pro G&C - Intercepting NPM install for:', pkg);
+            console.log('Scrypted Pro - Intercepting NPM install for:', pkg);
             console.log('Loading local compiled source from:', pluginDir);
             
             const packageJsonPath = path.join(pluginDir, 'package.json');
@@ -597,7 +597,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
                 plugin.zip = zipBuffer.toString('base64');
                 await this.datastore.upsert(plugin);
                 
-                console.log('Scrypted Pro G&C - Local custom plugin loaded successfully:', pkg);
+                console.log('Scrypted Pro - Local custom plugin loaded successfully:', pkg);
                 return this.installPlugin(plugin);
             }
         }
@@ -993,7 +993,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
         // catch kill
         process.on('SIGTERM', () => this.exit());
 
-        // Scrypted Pro G&C: Auto-migrate database from old plugin IDs to TS7 (27-suffixed) versions
+        // Scrypted Pro: Auto-migrate database from old plugin IDs to TS7 (27-suffixed) versions
         try {
             const migrations: { [oldId: string]: string } = {
                 '@scrypted/homekit': '@scrypted/homekit27',
@@ -1135,7 +1135,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
             plugins.push(plugin);
         }
 
-        // Scrypted Pro G&C: Auto-install or update local custom plugins on startup
+        // Scrypted Pro: Auto-install or update local custom plugins on startup
         try {
             const customPluginsBase = process.env.SCRYPTED_CUSTOM_PLUGINS_DIR || '/scrypted-src/plugins';
             if (fs.existsSync(customPluginsBase)) {
@@ -1157,7 +1157,7 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
                         
                         const existingPlugin = plugins.find(p => p._id === pkgName);
                         if (!existingPlugin || semver.gt(packageJson.version, existingPlugin.packageJson.version)) {
-                            console.log(`[Scrypted Pro G&C] Auto-installing custom local plugin: ${pkgName}@${packageJson.version}`);
+                            console.log(`[Scrypted Pro] Auto-installing custom local plugin: ${pkgName}@${packageJson.version}`);
                             try {
                                 const newPlugin = new Plugin();
                                 newPlugin._id = pkgName;
@@ -1174,14 +1174,14 @@ export class ScryptedRuntime extends PluginHttp<HttpPluginData> {
                                     plugins[index] = newPlugin;
                                 }
                             } catch (err) {
-                                console.error(`[Scrypted Pro G&C] Failed to auto-install ${pkgName}:`, err);
+                                console.error(`[Scrypted Pro] Failed to auto-install ${pkgName}:`, err);
                             }
                         }
                     }
                 }
             }
         } catch (e) {
-            console.error('[Scrypted Pro G&C] Error during auto-install loop', e);
+            console.error('[Scrypted Pro] Error during auto-install loop', e);
         }
 
         for (const plugin of plugins) {

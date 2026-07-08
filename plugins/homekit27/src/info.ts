@@ -8,7 +8,7 @@ export function addAccessoryDeviceInfo(device: ScryptedDevice, accessory: Access
     if (deviceInfo?.manufacturer)
         info.updateCharacteristic(Characteristic.Manufacturer, deviceInfo.manufacturer);
     else
-        info.updateCharacteristic(Characteristic.Manufacturer, 'Scrypted Pro G&C');
+        info.updateCharacteristic(Characteristic.Manufacturer, 'Scrypted Pro');
     if (deviceInfo?.model)
         info.updateCharacteristic(Characteristic.Model, deviceInfo.model);
     if (deviceInfo?.serialNumber)

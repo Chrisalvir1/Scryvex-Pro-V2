@@ -1,4 +1,4 @@
-# 📋 Estado del Proyecto — Scryvex Pro
+# 📋 Estado del Proyecto — Scrypted Pro
 
 > Última actualización: 7 de julio de 2026
 
@@ -6,7 +6,7 @@
 
 ## 🎯 Objetivo del Proyecto
 
-Scryvex Pro es una versión personalizada de Scrypted orientada a:
+Scrypted Pro es una versión personalizada de Scrypted orientada a:
 
 - **Remux directo** de cámaras a HomeKit sin transcodificación (para no cargar la Raspberry Pi 5)
 - **Soporte H.264 y H.265** con aceleración de hardware cuando sea necesario
@@ -52,7 +52,7 @@ Scryvex Pro es una versión personalizada de Scrypted orientada a:
 ### 1. Sincronizar repo local con GitHub
 El repo local tiene commits pendientes que no se han podido subir por problema de remote incorrecto.
 ```bash
-cd "/Users/chrisalvir/Desktop/GITHUB PROJECT/Scryvex Pro"
+cd "/Users/chrisalvir/Desktop/GITHUB PROJECT/Scrypted Pro"
 git remote set-url origin git@github.com:Chrisalvir1/Scryvex-Pro.git
 git pull origin main --rebase
 ```
@@ -74,10 +74,10 @@ git push origin main --force
 ```
 
 ### 4. Crear `config.yaml` para addon de Home Assistant
-Para que Scryvex Pro aparezca como addon instalable en HA, necesita:
+Para que Scrypted Pro aparezca como addon instalable en HA, necesita:
 ```yaml
 # addon/config.yaml
-name: Scryvex Pro
+name: Scrypted Pro
 version: "1.0.0"
 slug: scryvex_pro
 description: Scrypted personalizado con remux directo para HomeKit
@@ -142,9 +142,9 @@ Los paquetes `camera-core`, `compat-engine`, `runtime` y `registry` fueron cread
 ## 📌 Prompt para continuar en otra sesión
 
 ```
-Estoy desarrollando Scryvex Pro, una versión personalizada de Scrypted para HomeKit en Raspberry Pi 5.
+Estoy desarrollando Scrypted Pro, una versión personalizada de Scrypted para HomeKit en Raspberry Pi 5.
 Repo: https://github.com/Chrisalvir1/Scryvex-Pro
-Repo local: /Users/chrisalvir/Desktop/GITHUB PROJECT/Scryvex Pro
+Repo local: /Users/chrisalvir/Desktop/GITHUB PROJECT/Scrypted Pro
 
 Objetivo principal: remux directo de cámaras (EZVIZ, Aqara G410 2K, Hikvision, ONVIF, RTSP, Tapo, Reolink) 
 a HomeKit sin transcodificación para no cargar la Pi 5. Una cámara = una entidad en HomeKit 

@@ -220,7 +220,7 @@ addSupportedType({
 
         accessory.configureController(controller);
 
-        // Scrypted Pro G&C: Inject custom HomeKit WebRTC Controller
+        // Scrypted Pro: Inject custom HomeKit WebRTC Controller
         // Import must be added at the top: import { CameraWebRTCController } from '../webrtc-controller';
         try {
             const { CameraWebRTCController } = require('../webrtc-controller');

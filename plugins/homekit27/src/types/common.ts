@@ -14,7 +14,7 @@ export function getSafeMdnsName(device: ScryptedDevice) {
     // The underlying mdns advertisers also support spaces (allegedly, since it seems to work already, but I have not looked closely).
 
     let newName = '';
-    let name = device.name || 'Scrypted Pro G&C';
+    let name = device.name || 'Scrypted Pro';
     for (const c of name) {
         if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c === '-' || c === ' ') {
             newName += c
@@ -22,7 +22,7 @@ export function getSafeMdnsName(device: ScryptedDevice) {
     }
 
     if (!newName)
-        newName = 'Scrypted Pro G&C';
+        newName = 'Scrypted Pro';
 
     return newName;
 }

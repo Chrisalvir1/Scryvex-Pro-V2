@@ -64,7 +64,7 @@ const includeToken = 4;
 
 export class HomeKitPlugin extends ScryptedDeviceBase implements MixinProvider, Settings, DeviceProvider {
     seenConnections = new Set<string>();
-    bridge = new Bridge('Scrypted Pro G&C', getHAPUUID(this.storage));
+    bridge = new Bridge('Scrypted Pro', getHAPUUID(this.storage));
     snapshotThrottles = new Map<string, SnapshotThrottle>();
     standalones = new Map<string, Accessory>();
     videoClips: VideoClipsMixinProvider;
