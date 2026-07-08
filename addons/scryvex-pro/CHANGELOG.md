@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-07-07
+
+### Fixed
+- Corrección del error de Home Assistant `s6-overlay-suexec: fatal: can only run as pid 1` mediante la instrucción `init: false` en `config.yaml`.
+- Restaurado nombre oficial del proyecto a Scryvex Pro.
+
 ## [1.0.0] - 2026-07-07
 
 ### Added
