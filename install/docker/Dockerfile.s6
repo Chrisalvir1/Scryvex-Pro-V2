@@ -46,7 +46,7 @@ RUN test -n "$SCRYPTED_INSTALL_VERSION"
 RUN --mount=type=cache,target=/root/.npm \
     rm -rf /server && mkdir -p /server && cd /server && \
     echo '{"name":"scrypted-server","private":true,"dependencies":{}}' > package.json && \
-    npm install --no-audit --no-fund --legacy-peer-deps @scrypted/server@${SCRYPTED_INSTALL_VERSION}
+    sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install --no-audit --no-fund --legacy-peer-deps @scrypted/server@${SCRYPTED_INSTALL_VERSION}
 
 # ── 4. Copy source directories INDIVIDUALLY for granular Docker layer caching ─
 # Each COPY is its own layer. If only server/ changes, sdk/build and plugin
@@ -58,50 +58,48 @@ COPY patches/ /scrypted-src/patches/
 # SDK (rarely changes)
 COPY sdk/ /scrypted-src/sdk/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/sdk && npm install
+    cd /scrypted-src/sdk && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_SDK" && cd /scrypted-src/sdk && npm run build \
     || (echo "=== BUILD FAILED IN sdk ===" && cat /root/.npm/_logs/*-debug.log || true)
 
 # Server (moved here because packages/auth-fetch depends on server/src/fetch)
 COPY server/ /scrypted-src/server/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/server && npm install
+    cd /scrypted-src/server && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_SERVER" && cd /scrypted-src/server && npm run build \
     || (echo "=== BUILD FAILED IN server ===" || true)
 
 # Common packages (rarely change)
 COPY packages/auth-fetch/ /scrypted-src/packages/auth-fetch/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/packages/auth-fetch && npm install
+    cd /scrypted-src/packages/auth-fetch && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_AUTH_FETCH" && cd /scrypted-src/packages/auth-fetch && npm run build \
     || (echo "=== BUILD FAILED IN packages/auth-fetch ===" || true)
 
 COPY common/ /scrypted-src/common/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/common && npm install
+    cd /scrypted-src/common && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_COMMON" && cd /scrypted-src/common && npm run build \
     || (echo "=== BUILD FAILED IN common ===" || true)
 
 COPY packages/client/ /scrypted-src/packages/client/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/packages/client && npm install
+    cd /scrypted-src/packages/client && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_CLIENT" && cd /scrypted-src/packages/client && npm run build \
     || (echo "=== BUILD FAILED IN packages/client ===" || true)
 
-
-# Core plugin (pull original UI from NPM to fix blank screen, while keeping TS7 backend)
-COPY plugins/core/ /scrypted-src/plugins/core/
-RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/core && npm install
-RUN echo "BUILDING_CORE" && cd /scrypted-src/plugins/core && npm run build
-RUN cd /scrypted-src/plugins/core && \
-    test -f dist/index.html || (cp -r /scrypted-src/packages/client/dist/* dist/ && echo "UI copiada desde client/dist")
-
+# Core plugin (restore original Perplexity design using precompiled NPM tarball)
+COPY install/docker/scrypted-core-0.3.147.tgz /scrypted-src/
+RUN mkdir -p /scrypted-src/plugins/core && \
+    tar -xzf /scrypted-src/scrypted-core-0.3.147.tgz -C /scrypted-src/plugins/core --strip-components=1 && \
+    rm /scrypted-src/scrypted-core-0.3.147.tgz && \
+    cd /scrypted-src/plugins/core && \
+    sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install --production
 
 # WebRTC dependencies (werift - heavy, rarely changes)
 COPY external/werift/ /scrypted-src/external/werift/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/external/werift && npm install
+    cd /scrypted-src/external/werift && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN cd /scrypted-src/external/werift && git apply /scrypted-src/patches/werift-h265.patch || true
 RUN echo "BUILDING_WERIFT" && cd /scrypted-src/external/werift && npm run build \
     || (echo "=== BUILD FAILED IN external/werift ===" || true)
@@ -109,23 +107,23 @@ RUN echo "BUILDING_WERIFT" && cd /scrypted-src/external/werift && npm run build 
 # FFmpeg camera plugin (homekit depends on this)
 COPY plugins/ffmpeg-camera27/ /scrypted-src/plugins/ffmpeg-camera27/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/ffmpeg-camera27 && npm install
+    cd /scrypted-src/plugins/ffmpeg-camera27 && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_FFMPEG_CAMERA27" && cd /scrypted-src/plugins/ffmpeg-camera27 && npm run build \
     || (echo "=== BUILD FAILED IN plugins/ffmpeg-camera27 ===" || true)
 
 # Cross-plugin dependency resolution for homekit → webrtc:
 # homekit's webpack traverses into webrtc/src/rtp-forwarders.ts which imports
 # @scrypted/common and @scrypted/sdk. These must be in webrtc's node_modules.
-# Order: COPY webrtc → npm install webrtc → COPY homekit → build homekit → build webrtc.
+# Order: COPY webrtc → sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install webrtc → COPY homekit → build homekit → build webrtc.
 
 COPY plugins/webrtc27/ /scrypted-src/plugins/webrtc27/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/webrtc27 && npm install --no-audit --no-fund
+    cd /scrypted-src/plugins/webrtc27 && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install --no-audit --no-fund
 
 # Now homekit can fully compile — webrtc source + node_modules are both present.
 COPY plugins/homekit27/ /scrypted-src/plugins/homekit27/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/homekit27 && rm -f package-lock.json && npm install --no-audit --no-fund
+    cd /scrypted-src/plugins/homekit27 && rm -f package-lock.json && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install --no-audit --no-fund
 RUN echo "BUILDING_HOMEKIT27" && cd /scrypted-src/plugins/homekit27 && npm run build \
     || (echo "=== BUILD FAILED IN plugins/homekit27 ===" && true)
 
@@ -135,13 +133,13 @@ RUN echo "BUILDING_WEBRTC27" && cd /scrypted-src/plugins/webrtc27 && npm run bui
 
 COPY plugins/rtsp27/ /scrypted-src/plugins/rtsp27/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/rtsp27 && npm install
+    cd /scrypted-src/plugins/rtsp27 && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_RTSP27" && cd /scrypted-src/plugins/rtsp27 && npm run build \
     || (echo "=== BUILD FAILED IN plugins/rtsp27 ===" || true)
 
 COPY plugins/onvif27/ /scrypted-src/plugins/onvif27/
 RUN --mount=type=cache,target=/root/.npm \
-    cd /scrypted-src/plugins/onvif27 && npm install
+    cd /scrypted-src/plugins/onvif27 && sed -i 's/"^7.0.1-rc"/"^5.6.2"/g' package.json && npm install
 RUN echo "BUILDING_ONVIF27" && cd /scrypted-src/plugins/onvif27 && npm run build \
     || (echo "=== BUILD FAILED IN plugins/onvif27 ===" || true)
 

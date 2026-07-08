@@ -12,7 +12,7 @@
    "devDependencies": {
       "@types/node": "^20.9.4",
       "rimraf": "^5.0.5",
-      "typescript": "^5.6.2"
+      "typescript": "^7.0.1-rc"
    },
    "dependencies": {
       "follow-redirects": "^1.15.4",
