@@ -1,79 +1,16 @@
 import React, { useState } from 'react';
 import type { CreateCameraInput, CameraProtocol } from '../types/camera';
 
-// ── Brand Logos (authentic SVG icons) ────────────────────────────────────────
-const RingLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <circle cx="20" cy="20" r="20" fill="#1B8EE3"/>
-        <circle cx="20" cy="20" r="12" fill="none" stroke="white" strokeWidth="4"/>
-        <circle cx="20" cy="20" r="4" fill="white"/>
-    </svg>
-);
-
-const WyzeLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#00BFFF"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="13" fontWeight="900" fontFamily="Arial">W</text>
-    </svg>
-);
-
-const TapoLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#FFFFFF"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="#008040" fontSize="9" fontWeight="900" fontFamily="Arial">TP-Link</text>
-        <text x="50%" y="78%" textAnchor="middle" dominantBaseline="middle" fill="#008040" fontSize="9" fontWeight="900" fontFamily="Arial">Tapo</text>
-    </svg>
-);
-
-const TuyaLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#FF4800"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="11" fontWeight="900" fontFamily="Arial">tuya</text>
-    </svg>
-);
-
-const EzvizLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#E31E24"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="8" fontWeight="900" fontFamily="Arial">EZVIZ</text>
-    </svg>
-);
-
-const HikvisionLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#CC0000"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="6.5" fontWeight="900" fontFamily="Arial">HIKVISION</text>
-    </svg>
-);
-
-const ReoLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#FF6B00"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="900" fontFamily="Arial">Reolink</text>
-    </svg>
-);
-
-const DahuaLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#003087"/>
-        <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="9" fontWeight="900" fontFamily="Arial">DAHUA</text>
-    </svg>
-);
-
-const GoogleNestLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <circle cx="20" cy="20" r="20" fill="#E8F0FE"/>
-        <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" fill="#4285F4" fontSize="22" fontWeight="900" fontFamily="Arial">G</text>
-    </svg>
-);
-
-const ArloLogo = () => (
-    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-        <rect width="40" height="40" rx="8" fill="#1A1A2E"/>
-        <path d="M10 28 L20 10 L30 28 Z" fill="#00C9A7"/>
-        <circle cx="20" cy="22" r="3" fill="#1A1A2E"/>
-    </svg>
-);
+const RingLogo = () => <img src="/assets/logos/ring.png" alt="Ring" className="w-9 h-9 object-contain" />;
+const WyzeLogo = () => <img src="/assets/logos/wyze.png" alt="Wyze" className="w-9 h-9 object-contain" />;
+const TapoLogo = () => <img src="/assets/logos/tapo.png" alt="Tapo" className="w-9 h-9 object-contain" />;
+const TuyaLogo = () => <img src="/assets/logos/tuya.png" alt="Tuya" className="w-9 h-9 object-contain" />;
+const EzvizLogo = () => <img src="/assets/logos/ezviz.png" alt="EZVIZ" className="w-9 h-9 object-contain" />;
+const HikvisionLogo = () => <img src="/assets/logos/hikvision.png" alt="Hikvision" className="w-9 h-9 object-contain" />;
+const ReoLogo = () => <img src="/assets/logos/reolink.png" alt="Reolink" className="w-9 h-9 object-contain" />;
+const DahuaLogo = () => <img src="/assets/logos/dahua.png" alt="Dahua" className="w-9 h-9 object-contain" />;
+const GoogleNestLogo = () => <img src="/assets/logos/google-nest.png" alt="Google Nest" className="w-9 h-9 object-contain" />;
+const ArloLogo = () => <img src="/assets/logos/arlo.png" alt="Arlo" className="w-9 h-9 object-contain" />;
 
 // ── Integration definitions ───────────────────────────────────────────────────
 type IntegrationConfig = {

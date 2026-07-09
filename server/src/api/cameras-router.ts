@@ -1,12 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { CameraService, CreateCameraInput } from './camera-service';
+import { CameraStreamController } from './camera-stream-controller';
+import { CameraProbe } from './camera-probe';
+import { MatterPairingService } from './matter-pairing';
+
+const streamController = new CameraStreamController();
 
 /**
  * Mounts REST endpoints for camera CRUD under /api/cameras.
  * All routes require the user to be authenticated (handled by parent app middleware).
  */
-export function createCamerasRouter(cameraService: CameraService): Router {
+export function createCamerasRouter(cameraService: CameraService, pool: Pool): Router {
     const router = Router();
+    const probeService = new CameraProbe(pool);
+    const matterService = new MatterPairingService(pool);
 
     // GET /api/cameras — list all cameras (no passwords returned)
     router.get('/', async (_req: Request, res: Response) => {
@@ -81,6 +88,77 @@ export function createCamerasRouter(cameraService: CameraService): Router {
             res.status(500).json({ error: 'Failed to delete camera', detail: err.message });
         }
     });
+
+    // ── Stream Controls ────────────────────────────────────────────────────────
+
+    router.post('/:id/stream/start', async (req, res) => {
+        try {
+            await streamController.startStream(req.params.id);
+            res.json({ success: true, message: 'Stream started' });
+        } catch (err: any) {
+            console.error('[cameras-router] Start stream error:', err.message);
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    router.post('/:id/stream/stop', (req, res) => {
+        streamController.stopStream(req.params.id);
+        res.json({ success: true, message: 'Stream stopped' });
+    });
+
+    // ── Codec Probe / Analytics ────────────────────────────────────────────────
+
+    router.get('/:id/probe', async (req, res) => {
+        try {
+            // In a real flow, if data doesn't exist, we run it
+            let data = await probeService.getProbeData(req.params.id);
+            if (!data) {
+                data = await probeService.runProbe(req.params.id);
+            }
+            res.json(data);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    router.post('/:id/probe/hevc', async (req, res) => {
+        try {
+            const data = await probeService.toggleHEVC(req.params.id, req.body.enabled);
+            res.json(data);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    // ── Matter Integration Endpoint ────────────────────────────────────────────
+
+    router.get('/:id/matter/pairing', async (req, res) => {
+        try {
+            const data = await matterService.generateCommissioningWindow(req.params.id);
+            res.json(data);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    router.get('/:id/matter/status', async (req, res) => {
+        try {
+            const data = await matterService.getPairingStatus(req.params.id);
+            res.json(data);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    router.delete('/:id/matter/unpair', async (req, res) => {
+        try {
+            const data = await matterService.unpair(req.params.id);
+            res.json(data);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
     // GET /api/cameras/matter/devices — dedicated endpoint for Matterbridge to consume
     router.get('/matter/devices', async (req: Request, res: Response) => {
         try {

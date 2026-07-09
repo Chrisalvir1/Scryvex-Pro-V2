@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useScryptedCameras } from './hooks/useScryptedCameras';
 import { CameraList } from './components/CameraList';
 import { AddCameraModal } from './components/AddCameraModal';
+import { PluginStore } from './components/PluginStore';
 import type { CreateCameraInput } from './types/camera';
 
 // ── Connection state indicator ────────────────────────────────────────────────
@@ -24,6 +25,7 @@ export default function App() {
     } = useScryptedCameras();
 
     const [showAddModal, setShowAddModal] = useState(false);
+    const [currentView, setCurrentView] = useState<'cameras' | 'plugins'>('cameras');
 
     const handleAddCamera = async (input: CreateCameraInput) => {
         await addCamera(input);
@@ -56,6 +58,21 @@ export default function App() {
                         <span className="text-xs text-gray-600 font-mono">
                             {cameras.length} cámara{cameras.length !== 1 ? 's' : ''}
                         </span>
+
+                        <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 mx-4">
+                            <button
+                                onClick={() => setCurrentView('cameras')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${currentView === 'cameras' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Cámaras
+                            </button>
+                            <button
+                                onClick={() => setCurrentView('plugins')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'plugins' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Plugins <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[9px]">NUEVO</span>
+                            </button>
+                        </div>
 
                         <button
                             onClick={() => setShowAddModal(true)}
@@ -94,12 +111,17 @@ export default function App() {
                 )}
 
                 {/* Normal state — camera list or empty state */}
-                {!loading && (!error || cameras.length === 0) && (
+                {!loading && (!error || cameras.length === 0) && currentView === 'cameras' && (
                     <CameraList
                         cameras={cameras}
                         events={recentEvents}
                         onDelete={deleteCamera}
                     />
+                )}
+
+                {/* Plugin store view */}
+                {!loading && currentView === 'plugins' && (
+                    <PluginStore />
                 )}
             </main>
 

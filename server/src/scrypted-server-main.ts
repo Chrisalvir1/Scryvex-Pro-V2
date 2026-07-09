@@ -30,6 +30,7 @@ import { ONE_DAY_MILLISECONDS, UserToken } from './usertoken';
 // Scryvex Pro — Camera BFF layer
 import { CameraService } from './api/camera-service';
 import { createCamerasRouter } from './api/cameras-router';
+import { createPluginsRouter } from './api/plugins-router';
 import { CamerasWebSocketBridge } from './api/cameras-ws';
 import { Pool } from 'pg';
 
@@ -797,8 +798,9 @@ async function start(mainFilename: string, options?: {
         }
     });
 
-    // Scryvex Pro — Camera REST API (BFF layer)
-    app.use('/api/cameras', createCamerasRouter(cameraService));
+    // ── Scryvex Pro V2 Addon Endpoints ────────────────────────
+    app.use('/api/cameras', createCamerasRouter(cameraService, pool));
+    app.use('/api/plugins', createPluginsRouter(pool));
 
     // Scryvex Pro Custom Frontend integration
     const frontendPath = path.resolve(__dirname, '../../frontend/dist');
