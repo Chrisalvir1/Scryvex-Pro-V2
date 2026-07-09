@@ -2,7 +2,7 @@ ARG BUILD_FROM=node:24-bookworm-slim
 FROM $BUILD_FROM
 
 # 1. Instalar dependencias del SO
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     postgresql-client \
     git \
