@@ -138,6 +138,37 @@ export function CameraList({ cameras, events, onDelete }: Props) {
         setMatterStatus({ ...matterStatus, isPaired: false, ecosystems: [] });
     };
 
+    const handleCopyLogs = async () => {
+        const selectedEvents = events.filter(e => e.camera_id === selectedId);
+        const logText = selectedEvents.map(ev => 
+            `[${new Date(ev.timestamp).toISOString()}] [${ev.event_type.toUpperCase()}] ${JSON.stringify(ev.metadata)}`
+        ).join('\n');
+        
+        try {
+            await navigator.clipboard.writeText(logText);
+            alert('Logs copiados al portapapeles');
+        } catch (err) {
+            console.error('Failed to copy logs', err);
+        }
+    };
+
+    const handleDownloadLogs = () => {
+        const selectedEvents = events.filter(e => e.camera_id === selectedId);
+        const logText = selectedEvents.map(ev => 
+            `[${new Date(ev.timestamp).toISOString()}] [${ev.event_type.toUpperCase()}] ${JSON.stringify(ev.metadata)}`
+        ).join('\n');
+        
+        const blob = new Blob([logText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `camera-${selectedId}-logs.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     const selected = cameras.find(c => c.id === selectedId) ?? null;
     const cameraEvents = events.filter(e => e.camera_id === selectedId);
 
@@ -348,29 +379,51 @@ export function CameraList({ cameras, events, onDelete }: Props) {
 
                     {/* Logs tab */}
                     {activeTab === 'logs' && (
-                        <div className="bg-black/60 rounded-xl border border-white/5 h-64 p-3 overflow-y-auto font-mono text-xs flex flex-col gap-1">
-                            {cameraEvents.length === 0 ? (
-                                <p className="text-gray-600 italic">Sin eventos recientes para esta cámara.</p>
-                            ) : (
-                                cameraEvents.map(ev => (
-                                    <div key={ev.id} className="flex gap-2 items-start">
-                                        <span className="text-gray-600 shrink-0">
-                                            {new Date(ev.timestamp).toLocaleTimeString()}
-                                        </span>
-                                        <span className={
-                                            ev.event_type === 'error' ? 'text-red-400' :
-                                            ev.event_type === 'offline' ? 'text-yellow-400' :
-                                            ev.event_type === 'person' || ev.event_type === 'motion' ? 'text-emerald-400' :
-                                            'text-blue-300'
-                                        }>
-                                            [{ev.event_type.toUpperCase()}]
-                                        </span>
-                                        <span className="text-gray-400">
-                                            {JSON.stringify(ev.metadata)}
-                                        </span>
-                                    </div>
-                                ))
-                            )}
+                        <div className="flex flex-col gap-3">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-bold text-white">Registro de Fallos y Eventos (Logs)</h3>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={handleCopyLogs}
+                                        disabled={cameraEvents.length === 0}
+                                        className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-xs font-semibold text-white transition-colors disabled:opacity-50"
+                                    >
+                                        Copiar Logs
+                                    </button>
+                                    <button 
+                                        onClick={handleDownloadLogs}
+                                        disabled={cameraEvents.length === 0}
+                                        className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/30 rounded text-xs font-semibold transition-colors disabled:opacity-50"
+                                    >
+                                        Descargar (.txt)
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-black/60 rounded-xl border border-white/5 h-64 p-3 overflow-y-auto font-mono text-xs flex flex-col gap-1">
+                                {cameraEvents.length === 0 ? (
+                                    <p className="text-gray-600 italic">Sin eventos recientes o fallos para esta cámara.</p>
+                                ) : (
+                                    cameraEvents.map(ev => (
+                                        <div key={ev.id} className="flex gap-2 items-start">
+                                            <span className="text-gray-600 shrink-0">
+                                                {new Date(ev.timestamp).toLocaleTimeString()}
+                                            </span>
+                                            <span className={
+                                                ev.event_type === 'error' ? 'text-red-400' :
+                                                ev.event_type === 'offline' ? 'text-yellow-400' :
+                                                ev.event_type === 'person' || ev.event_type === 'motion' ? 'text-emerald-400' :
+                                                'text-blue-300'
+                                            }>
+                                                [{ev.event_type.toUpperCase()}]
+                                            </span>
+                                            <span className="text-gray-400 break-all">
+                                                {JSON.stringify(ev.metadata)}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
                     )}
 
