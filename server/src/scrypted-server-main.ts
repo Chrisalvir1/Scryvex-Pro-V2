@@ -784,7 +784,7 @@ async function start(mainFilename: string, options?: {
     const frontendPath = path.resolve(__dirname, '../../frontend/dist');
     app.use(express.static(frontendPath));
 
-    app.get('/(.*)', (_req, res, next) => {
+    app.get('/{*splat}', (_req, res, next) => {
         // Ignorar endpoints de API, plugins y scrypted webhooks
         if (_req.url.startsWith('/endpoint') || _req.url.startsWith('/api') || _req.url.startsWith('/web')) {
             return next();
