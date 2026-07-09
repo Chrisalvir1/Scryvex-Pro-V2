@@ -1,4 +1,4 @@
-import { Accessory, Service, Characteristic, uuid } from 'hap-nodejs';
+import { Accessory, Service, Characteristic, uuid, Perms } from 'hap-nodejs';
 import { HKSV_UUIDS } from './manager'; // From Phase 4
 
 export interface CameraCapabilities {
@@ -60,7 +60,7 @@ export class HKSVAccessoryBuilder {
         // Characteristic: Camera Status Light
         const statusLightChar = new Characteristic("Camera Status Light", "0000021D-0000-1000-8000-0026BB765291", {
             format: "bool",
-            perms: ["pr", "pw", "ev"]
+            perms: [Perms.PAIRED_READ, Perms.PAIRED_WRITE, Perms.NOTIFY]
         });
         statusLightChar.setValue(true);
         operatingModeService.addCharacteristic(statusLightChar);
@@ -68,7 +68,7 @@ export class HKSVAccessoryBuilder {
         // Characteristic: Night Vision Light
         const nightVisionChar = new Characteristic("Night Vision Light", "0000021E-0000-1000-8000-0026BB765291", {
             format: "bool",
-            perms: ["pr", "pw", "ev"]
+            perms: [Perms.PAIRED_READ, Perms.PAIRED_WRITE, Perms.NOTIFY]
         });
         nightVisionChar.setValue(true);
         operatingModeService.addCharacteristic(nightVisionChar);

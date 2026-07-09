@@ -40,15 +40,15 @@ export class YOLOv10Detector {
     private async runInference(frameBuffer: Buffer) {
         const floatData = new Float32Array(640 * 640 * 3);
         for (let i = 0; i < 640 * 640; i++) {
-            floatData[i] = frameBuffer[i * 3] / 255.0; // R
-            floatData[640 * 640 + i] = frameBuffer[i * 3 + 1] / 255.0; // G
-            floatData[2 * 640 * 640 + i] = frameBuffer[i * 3 + 2] / 255.0; // B
+            floatData[i] = frameBuffer[i * 3]! / 255.0; // R
+            floatData[640 * 640 + i] = frameBuffer[i * 3 + 1]! / 255.0; // G
+            floatData[2 * 640 * 640 + i] = frameBuffer[i * 3 + 2]! / 255.0; // B
         }
 
         const tensor = new ort.Tensor('float32', floatData, [1, 3, 640, 640]);
         const results = await this.session.run({ images: tensor });
-        
-        const output = results[this.session.outputNames[0]].data as Float32Array;
+        const outputName = this.session.outputNames[0]!;
+        const output = results[outputName]!.data as Float32Array;
         this.processDetections(output);
     }
 

@@ -41,6 +41,10 @@ export class WrappedLevel extends EventEmitter {
         if (!this.curId) this.curId = 0;
     }
 
+    async close(): Promise<void> {
+        await this.pool.end();
+    }
+
     async get(key: string, options?: any): Promise<string> {
         const res = await this.pool.query('SELECT value FROM scryvex_core.keyvalue WHERE key = $1', [key]);
         if (res.rows.length === 0) throw new Error('NotFound');

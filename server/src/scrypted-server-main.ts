@@ -433,7 +433,7 @@ async function start(mainFilename: string, options?: {
 
     app.get(['/web/component/script/npm/:pkg', '/web/component/script/npm/@:owner/:pkg'], async (req, res) => {
         const { owner, pkg } = req.params;
-        let endpoint = pkg;
+        let endpoint = pkg as string;
         if (owner)
             endpoint = `@${owner}/${endpoint}`;
         try {
@@ -448,11 +448,11 @@ async function start(mainFilename: string, options?: {
 
     app.post(['/web/component/script/install/:pkg', '/web/component/script/install/@:owner/:pkg', '/web/component/script/install/@:owner/:pkg/:tag'], async (req, res) => {
         const { owner, pkg, tag } = req.params;
-        let endpoint = pkg;
+        let endpoint = pkg as string;
         if (owner)
             endpoint = `@${owner}/${endpoint}`;
         try {
-            const plugin = (await scrypted.installNpm(endpoint!, tag))!;
+            const plugin = (await scrypted.installNpm(endpoint!, tag as string | undefined))!;
             res.send({
                 id: scrypted.findPluginDevice(plugin.pluginId)!._id,
             });

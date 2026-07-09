@@ -26,6 +26,7 @@ export class HKSVManager {
                 const sdpOffer = await this.generateSDP();
                 return { status: 'Success', sdpOffer, sframeConfig: this.generateSFrameKey() };
             }
+            return { status: 'Success' };
         });
 
         // Step 3: Controller -> Camera (WebRTC Provide Answer)

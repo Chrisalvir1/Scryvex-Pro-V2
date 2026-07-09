@@ -62,7 +62,7 @@ export abstract class PluginHttp<T> {
         };
 
         const { owner, pkg } = req.params;
-        let endpoint = pkg;
+        let endpoint = pkg as string;
         if (owner)
             endpoint = `@${owner}/${endpoint}`;
         if (!endpoint) {
