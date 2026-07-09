@@ -20,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
     unknown: 'DESCONOCIDO',
 };
 
-type ActiveTab = 'preview' | 'logs' | 'info' | 'matter';
+type ActiveTab = 'preview' | 'logs' | 'info' | 'matter' | 'sensors';
 
 // Helper to determine the camera brand logo based on its name
 function getBrandLogo(name: string): string {
@@ -169,6 +169,21 @@ export function CameraList({ cameras, events, onDelete }: Props) {
         URL.revokeObjectURL(url);
     };
 
+    const handleToggleYolo = async () => {
+        if (!selectedId) return;
+        const currentEnabled = selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true;
+        try {
+            await fetch(`/api/cameras/${selectedId}/yolo`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: !currentEnabled })
+            });
+            // Let the websocket push the updated camera to refresh UI
+        } catch (err) {
+            console.error('Failed to toggle YOLO', err);
+        }
+    };
+
     const selected = cameras.find(c => c.id === selectedId) ?? null;
     const cameraEvents = events.filter(e => e.camera_id === selectedId);
 
@@ -271,7 +286,7 @@ export function CameraList({ cameras, events, onDelete }: Props) {
 
                     {/* Tabs */}
                     <div className="flex gap-1 border-b border-white/10">
-                        {(['preview', 'logs', 'info', 'matter'] as ActiveTab[]).map(t => (
+                        {(['preview', 'logs', 'info', 'matter', 'sensors'] as ActiveTab[]).map(t => (
                             <button
                                 key={t}
                                 onClick={() => setActiveTab(t)}
@@ -281,7 +296,7 @@ export function CameraList({ cameras, events, onDelete }: Props) {
                                         : 'border-transparent text-gray-500 hover:text-gray-300'
                                 }`}
                             >
-                                {t === 'preview' ? 'Preview' : t === 'logs' ? 'Logs' : t === 'info' ? 'Info' : 'Matter'}
+                                {t === 'preview' ? 'Preview' : t === 'logs' ? 'Logs' : t === 'info' ? 'Info' : t === 'matter' ? 'Matter' : 'Sensores'}
                             </button>
                         ))}
                     </div>
@@ -574,6 +589,64 @@ export function CameraList({ cameras, events, onDelete }: Props) {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Sensors tab */}
+                    {activeTab === 'sensors' && (
+                        <div className="flex flex-col gap-4 p-4 border border-white/5 bg-black/40 rounded-xl mt-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                                    <span className="text-xl">🧠</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Procesamiento IA Local</h3>
+                                    <p className="text-xs text-gray-400">
+                                        Analiza el stream RTSP de esta cámara localmente utilizando el modelo YOLOv10 (Zero-Latency).
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                                <div className="flex-1">
+                                    <h3 className="text-white font-bold text-sm">Habilitar YOLOv10</h3>
+                                    <p className="text-gray-500 text-xs mt-1">
+                                        Activa la detección de objetos y personas por fotograma. Esto aumenta el uso de CPU/GPU del servidor.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleToggleYolo}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(selected.config?.yolo_enabled === 'true' || selected.config?.yolo_enabled === true) ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(selected.config?.yolo_enabled === 'true' || selected.config?.yolo_enabled === true) ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+                            
+                            <div className="mt-4">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sensores Expuestos (Vía Matterbridge)</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                        <span className="text-2xl mb-1">🏃‍♂️</span>
+                                        <span className="text-xs font-bold text-emerald-400">Persona</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Activado por YOLO o Cámara</span>
+                                    </div>
+                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                        <span className="text-2xl mb-1">🚗</span>
+                                        <span className="text-xs font-bold text-emerald-400">Vehículo</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Requiere YOLOv10</span>
+                                    </div>
+                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                        <span className="text-2xl mb-1">🐶</span>
+                                        <span className="text-xs font-bold text-emerald-400">Mascota</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Requiere YOLOv10</span>
+                                    </div>
+                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                        <span className="text-2xl mb-1">📦</span>
+                                        <span className="text-xs font-bold text-emerald-400">Paquete</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Soporte HKSV Exclusivo</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

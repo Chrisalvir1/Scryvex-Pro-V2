@@ -799,8 +799,8 @@ async function start(mainFilename: string, options?: {
     });
 
     // ── Scryvex Pro V2 Addon Endpoints ────────────────────────
-    app.use('/api/cameras', createCamerasRouter(cameraService, pool));
-    app.use('/api/plugins', createPluginsRouter(pool));
+    app.use('/api/cameras', createCamerasRouter(cameraService, pgPool));
+    app.use('/api/plugins', createPluginsRouter(pgPool));
 
     // Scryvex Pro Custom Frontend integration
     const frontendPath = path.resolve(__dirname, '../../frontend/dist');

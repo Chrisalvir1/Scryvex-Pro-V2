@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { Pool } from 'pg';
 import { CameraService, CreateCameraInput } from './camera-service';
 import { CameraStreamController } from './camera-stream-controller';
 import { CameraProbe } from './camera-probe';
@@ -195,6 +196,25 @@ export function createCamerasRouter(cameraService: CameraService, pool: Pool): R
         } catch (err: any) {
             console.error('[cameras-router] GET /api/cameras/matter/devices error:', err.message);
             res.status(500).json({ error: 'Failed to fetch Matter devices' });
+        }
+    });
+
+    // ── YOLOv10 Endpoint ──────────────────────────────────────────────────────
+
+    router.put('/:id/yolo', async (req: Request, res: Response) => {
+        try {
+            const { enabled } = req.body;
+            const cameraId = req.params.id;
+            // Update the jsonb config object in postgres to toggle YOLOv10
+            await pool.query(
+                `UPDATE scryvex_core.cameras 
+                 SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{yolo_enabled}', $1::jsonb) 
+                 WHERE id = $2`,
+                [enabled ? 'true' : 'false', cameraId]
+            );
+            res.json({ success: true, enabled });
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
         }
     });
 

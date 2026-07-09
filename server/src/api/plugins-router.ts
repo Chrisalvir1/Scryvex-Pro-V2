@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Pool } from 'pg';
 
-export function createPluginsRouter(pool: Pool) {
+export function createPluginsRouter(pool: Pool): Router {
     const router = Router();
 
     const AVAILABLE_PLUGINS = [
@@ -29,7 +29,10 @@ export function createPluginsRouter(pool: Pool) {
     // POST /api/plugins/:id/install
     router.post('/:id/install', (req, res) => {
         const plugin = AVAILABLE_PLUGINS.find(p => p.id === req.params.id);
-        if (!plugin) return res.status(404).json({ error: 'Plugin no encontrado' });
+        if (!plugin) {
+            res.status(404).json({ error: 'Plugin no encontrado' });
+            return;
+        }
         
         // Mock installation process
         plugin.installed = true;
@@ -39,11 +42,15 @@ export function createPluginsRouter(pool: Pool) {
     // DELETE /api/plugins/:id
     router.delete('/:id', (req, res) => {
         const plugin = AVAILABLE_PLUGINS.find(p => p.id === req.params.id);
-        if (!plugin) return res.status(404).json({ error: 'Plugin no encontrado' });
+        if (!plugin) {
+            res.status(404).json({ error: 'Plugin no encontrado' });
+            return;
+        }
         
         // Cannot uninstall core plugins
         if (plugin.id === 'rtsp' || plugin.id === 'onvif') {
-            return res.status(400).json({ error: 'No se pueden desinstalar los plugins core.' });
+            res.status(400).json({ error: 'No se pueden desinstalar los plugins core.' });
+            return;
         }
 
         plugin.installed = false;

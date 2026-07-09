@@ -26,7 +26,7 @@ RUN npm install -g typescript rimraf
 WORKDIR /usr/src/app
 
 # 5. Clonar el repositorio base
-ARG CACHE_BUST=26
+ARG CACHE_BUST=27
 RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
 # 6. Descargas manuales de submódulos (probado localmente - NECESARIOS)

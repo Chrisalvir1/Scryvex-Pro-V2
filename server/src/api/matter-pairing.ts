@@ -7,7 +7,7 @@ export class MatterPairingService {
         // Mock query to Matterbridge fabric
         const isPaired = Math.random() > 0.5; // Simulate 50% chance paired for demo
         
-        let ecosystems = [];
+        let ecosystems: any[] = [];
         if (isPaired) {
             ecosystems = [
                 { id: 'apple', name: 'Apple Home', homeName: 'Casa de Chris' },
