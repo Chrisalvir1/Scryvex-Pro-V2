@@ -1,7 +1,7 @@
 {
-  "name": "@scrypted/server",
-  "version": "0.144.2",
-  "description": "",
+  "name": "@scryvex/server",
+  "version": "1.0.0",
+  "description": "Scryvex Pro Core",
   "dependencies": {
     "@scrypted/ffmpeg-static": "^6.1.0-build3",
     "@scrypted/node-pty": "^1.0.25",

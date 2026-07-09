@@ -41,7 +41,4 @@ export SCRYPTED_VOLUME="/data/.scryvex_pro"
 
 echo "Arrancando Scryvex Pro Core en Node 24..."
 cd /app/server
-# Assuming the entrypoint compiled by TS7 is dist/scrypted-server-main.js or similar
-# Based on Scrypted structure, it might be in dist/server/src/scrypted-server-main.js
-# We'll execute the main server script:
-npm run start # o ejecutar node dist/index.js directamente
+pnpm run serve
