@@ -18,6 +18,8 @@ fi
 
 # Paso 2: Arrancar PostgreSQL
 echo "Arrancando demonio de PostgreSQL..."
+touch /data/postgres.log
+chown postgres:postgres /data/postgres.log
 su - postgres -c "/usr/lib/postgresql/15/bin/pg_ctl -D $PG_DATA_DIR -l /data/postgres.log start"
 
 # Polling hasta que postgres responda
