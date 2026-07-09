@@ -23,7 +23,7 @@ RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
 WORKDIR /usr/src/app
 
 # 4. Clonar el codigo CON submodulos
-ARG CACHE_BUST=1
+ARG CACHE_BUST=2
 RUN git clone --depth 1 --recurse-submodules --shallow-submodules \
     https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
