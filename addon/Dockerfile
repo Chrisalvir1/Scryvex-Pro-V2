@@ -1,7 +1,7 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-debian:bookworm
 FROM $BUILD_FROM
 
-# 1. Instalar Node 24 y dependencias del SO
+# 1. Instalar dependencias base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ffmpeg \
@@ -16,33 +16,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. LA MAGIA: Forzar pnpm versión 8 (Sin candados de seguridad molestos)
+# 2. Forzar pnpm 8 (Que no tiene candados paranoicos de seguridad)
 RUN corepack enable && corepack prepare pnpm@8.15.9 --activate
 
 # 3. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 4. Clonar el codigo principal
-ARG CACHE_BUST=7
+# 4. Clonar el repositorio base
+ARG CACHE_BUST=8
 RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
-# 5. FIX DEFINITIVO: Clonar manualmente los submodulos porque Git perdio los enlaces
+# 5. Descargas manuales (Solucionan los submódulos rotos)
 RUN rm -rf external/werift && git clone --depth 1 https://github.com/koush/werift-webrtc.git external/werift
 RUN rm -rf external/unifi-protect && git clone --depth 1 https://github.com/koush/unifi-protect.git external/unifi-protect
 RUN rm -rf external/ring-client-api && git clone --depth 1 -b fork https://github.com/koush/ring.git external/ring-client-api
 RUN rm -rf plugins/onvif/onvif && git clone --depth 1 https://github.com/koush/onvif.git plugins/onvif/onvif
 
-# 6. EL DOBLE PARCHE MAESTRO: Borrar script de publicación Y borrar regla de versión de motores
-RUN node -e "const fs = require('fs'); const p = 'sdk/package.json'; const d = JSON.parse(fs.readFileSync(p)); delete d.scripts.prepublishOnly; fs.writeFileSync(p, JSON.stringify(d, null, 2));" \
-    && node -e "const fs = require('fs'); const p = 'package.json'; const d = JSON.parse(fs.readFileSync(p)); delete d.engines; fs.writeFileSync(p, JSON.stringify(d, null, 2));"
+# 6. Borrar el script de publicación que rompe TypeScript
+RUN node -e "const fs = require('fs'); const p = 'sdk/package.json'; const d = JSON.parse(fs.readFileSync(p)); delete d.scripts.prepublishOnly; fs.writeFileSync(p, JSON.stringify(d, null, 2));"
 
-# 7. Compilar a la fuerza (Ignorando cualquier otra restricción de motor que quede)
+# 7. EL GOLPE FINAL: Instalar ignorando estrictamente si pide la versión 9
+RUN pnpm config set engine-strict false
 RUN pnpm install --no-frozen-lockfile --config.engine-strict=false
 
-# 6. Build del servidor
-RUN cd server && pnpm run build || echo "Build warnings OK, continuing..."
-
-# 7. Dar permisos al script de inicio
+# 8. Permisos y arranque
 RUN chmod a+x run.sh
-
-CMD [ "/usr/src/app/run.sh" ]
+CMD [ "./run.sh" ]
