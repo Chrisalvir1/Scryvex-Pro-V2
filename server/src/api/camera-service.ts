@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { CameraStatus, CameraEvent, CreateCameraInput, CameraProtocol } from '../../../frontend/src/types/camera';
+import { CameraStatus, CameraEvent, CreateCameraInput, CameraProtocol } from '../types/camera';
 export { CameraStatus, CameraEvent, CreateCameraInput, CameraProtocol };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
