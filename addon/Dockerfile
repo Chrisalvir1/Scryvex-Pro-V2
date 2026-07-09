@@ -27,10 +27,7 @@ ARG CACHE_BUST=1
 RUN git clone --depth 1 --recurse-submodules --shallow-submodules \
     https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
-# 5. Eliminar plugins con submodulos relativos rotos que no existen en Docker
-RUN rm -rf plugins/homekit plugins/cloud plugins/vscode-typescript
-
-# 6. Instalar dependencias (ahora sin los plugins rotos)
+# 5. Instalar dependencias (los submodulos ahora funcionan bien gracias a .gitmodules absoluto)
 RUN pnpm install --no-frozen-lockfile
 
 # 6. Build del servidor
