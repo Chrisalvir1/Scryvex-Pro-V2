@@ -2,4 +2,5 @@ packages:
   - 'server'
   - 'sdk'
   - 'plugins/*'
+  - '!plugins/cloud'
   - 'frontend'

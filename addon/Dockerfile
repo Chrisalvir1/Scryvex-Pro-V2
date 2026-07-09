@@ -1,7 +1,7 @@
 ARG BUILD_FROM=node:24-bookworm-slim
 FROM $BUILD_FROM
 
-# 1. Instalar dependencias del sistema operativo (FFmpeg es vital para tu Fase 3)
+# 1. Instalar dependencias del SO
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     postgresql-client \
@@ -12,18 +12,18 @@ RUN apt-get update && apt-get install -y \
     libavahi-compat-libdnssd-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Habilitar pnpm de forma nativa
+# 2. Habilitar pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# 3. Establecer el directorio de trabajo
+# 3. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 4. Clonar el codigo (Sustituyo COPY . . por git clone para evitar el crash de contexto Docker en HA Add-ons)
-RUN git clone https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
+# 4. Copiar todo el código localmente (SIN GIT CLONE)
+COPY . .
 
-# 5. Instalar las dependencias (el flag --no-frozen-lockfile evita errores si no hay lockfile)
+# 5. Instalar dependencias (Saltando errores de nube y lockfile)
 RUN pnpm install --no-frozen-lockfile
 
-# 6. Dar permisos al script de inicio y ejecutar
+# 6. Permisos y arranque
 RUN chmod a+x run.sh
 CMD [ "./run.sh" ]
