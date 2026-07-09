@@ -23,13 +23,14 @@ RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
 WORKDIR /usr/src/app
 
 # 4. Clonar el codigo principal
-ARG CACHE_BUST=3
+ARG CACHE_BUST=4
 RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
 # 5. FIX DEFINITIVO: Clonar manualmente los submodulos porque Git perdio los enlaces
 RUN rm -rf external/werift && git clone --depth 1 https://github.com/koush/werift-webrtc.git external/werift
 RUN rm -rf external/unifi-protect && git clone --depth 1 https://github.com/koush/unifi-protect.git external/unifi-protect
 RUN rm -rf external/ring-client-api && git clone --depth 1 -b fork https://github.com/koush/ring.git external/ring-client-api
+RUN rm -rf plugins/onvif/onvif && git clone --depth 1 https://github.com/koush/onvif.git plugins/onvif/onvif
 
 # 6. Instalar dependencias
 RUN pnpm install --no-frozen-lockfile
