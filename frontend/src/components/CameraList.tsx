@@ -22,21 +22,32 @@ const STATUS_LABELS: Record<string, string> = {
 
 type ActiveTab = 'preview' | 'logs' | 'info' | 'matter' | 'sensors';
 
+const BRAND_LOGOS: Record<string, string> = {
+    ring: '/logos/ring.png',
+    wyze: '/logos/wyze.png',
+    tapo: '/logos/tapo.jpg',
+    'tp-link': '/logos/tapo.jpg',
+    tuya: '/logos/tuya.png',
+    ezviz: '/logos/ezviz.png',
+    hikvision: '/logos/hikvision.png',
+    reolink: '/logos/reolink.png',
+    dahua: '/logos/dahua.png',
+    google: '/logos/google-nest.png',
+    nest: '/logos/google-nest.png',
+    arlo: '/logos/arlo.png',
+    vimtag: '/logos/vimtag.png',
+    rtsp: '/logos/rtsp.png',
+    onvif: '/logos/onvif.png',
+};
+
 // Helper to determine the camera brand logo based on its name
 function getBrandLogo(name: string): string {
     const n = name.toLowerCase();
-    if (n.includes('ring')) return '/assets/logos/ring.png';
-    if (n.includes('wyze')) return '/assets/logos/wyze.png';
-    if (n.includes('tapo') || n.includes('tp-link')) return '/assets/logos/tapo.png';
-    if (n.includes('tuya')) return '/assets/logos/tuya.png';
-    if (n.includes('ezviz')) return '/assets/logos/ezviz.png';
-    if (n.includes('hikvision')) return '/assets/logos/hikvision.png';
-    if (n.includes('reolink')) return '/assets/logos/reolink.png';
-    if (n.includes('dahua')) return '/assets/logos/dahua.png';
-    if (n.includes('google') || n.includes('nest')) return '/assets/logos/google-nest.png';
-    if (n.includes('arlo')) return '/assets/logos/arlo.png';
-    if (n.includes('vimtag')) return '/assets/logos/vimtag.png';
-    
+    for (const [key, logo] of Object.entries(BRAND_LOGOS)) {
+        if (n.includes(key)) {
+            return logo;
+        }
+    }
     // Generic fallback icon if no brand is matched
     return '';
 }

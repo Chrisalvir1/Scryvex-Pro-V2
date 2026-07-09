@@ -11,7 +11,11 @@ const streamController = new CameraStreamController();
  * Mounts REST endpoints for camera CRUD under /api/cameras.
  * All routes require the user to be authenticated (handled by parent app middleware).
  */
-export function createCamerasRouter(cameraService: CameraService, pool: Pool): Router {
+export function createCamerasRouter(
+    cameraService: CameraService, 
+    pool: Pool, 
+    getWsBridge: () => import('./cameras-ws').CamerasWebSocketBridge | undefined
+): Router {
     const router = Router();
     const probeService = new CameraProbe(pool);
     const matterService = new MatterPairingService(pool);
@@ -67,6 +71,7 @@ export function createCamerasRouter(cameraService: CameraService, pool: Pool): R
             }
 
             const camera = await cameraService.create(body);
+            getWsBridge()?.broadcastCamerasUpdated('camera.created', camera.id);
             res.status(201).json({ camera });
         } catch (err: any) {
             console.error('[cameras-router] POST /api/cameras error:', err.message);
@@ -83,6 +88,8 @@ export function createCamerasRouter(cameraService: CameraService, pool: Pool): R
                 res.status(404).json({ error: 'Camera not found' });
                 return;
             }
+            getWsBridge()?.broadcastCamerasUpdated('camera.deleted', id);
+            // 204 or 200, let's keep the existing pattern
             res.json({ success: true, id });
         } catch (err: any) {
             console.error('[cameras-router] DELETE /api/cameras error:', err.message);

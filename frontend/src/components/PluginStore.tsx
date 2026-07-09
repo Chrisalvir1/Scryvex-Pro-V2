@@ -87,7 +87,26 @@ export function PluginStore() {
                 {plugins.map(p => (
                     <div key={p.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col transition hover:bg-white/10">
                         <div className="flex items-start justify-between mb-4">
-                            <img src={p.icon} alt={p.name} className="w-12 h-12 object-contain" />
+                            {/* Use the icon URL from the API; fall back to a text avatar on 404 */}
+                            <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white/5 border border-white/10">
+                                <img
+                                    src={p.icon}
+                                    alt={p.name}
+                                    className="w-full h-full object-contain p-1"
+                                    onError={(e) => {
+                                        // Hide broken image and show the fallback letter avatar
+                                        const el = e.currentTarget;
+                                        el.style.display = 'none';
+                                        const parent = el.parentElement!;
+                                        if (!parent.querySelector('.logo-fallback')) {
+                                            const span = document.createElement('span');
+                                            span.className = 'logo-fallback text-lg font-black text-blue-400';
+                                            span.textContent = p.name.charAt(0).toUpperCase();
+                                            parent.appendChild(span);
+                                        }
+                                    }}
+                                />
+                            </div>
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/30 text-gray-300">
                                 v{p.version}
                             </span>

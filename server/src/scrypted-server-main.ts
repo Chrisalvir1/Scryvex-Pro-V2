@@ -799,7 +799,8 @@ async function start(mainFilename: string, options?: {
     });
 
     // ── Scryvex Pro V2 Addon Endpoints ────────────────────────
-    app.use('/api/cameras', createCamerasRouter(cameraService, pgPool));
+    let wsBridge: import('./api/cameras-ws').CamerasWebSocketBridge | undefined;
+    app.use('/api/cameras', createCamerasRouter(cameraService, pgPool, () => wsBridge));
     app.use('/api/plugins', createPluginsRouter(pgPool));
 
     // Scryvex Pro Custom Frontend integration
@@ -825,8 +826,24 @@ async function start(mainFilename: string, options?: {
         return server;
     }
 
-    await listenServerPort('SCRYPTED_SECURE_PORT', SCRYPTED_SECURE_PORT, hookUpgrade(https.createServer(mergedHttpsServerOptions, app)));
-    await listenServerPort('SCRYPTED_INSECURE_PORT', SCRYPTED_INSECURE_PORT, hookUpgrade(http.createServer(app)));
+    const httpsServer = hookUpgrade(https.createServer(mergedHttpsServerOptions, app));
+    const httpServer  = hookUpgrade(http.createServer(app));
+
+    // ── Scryvex Pro — attach WebSocket bridge for real-time camera events ──
+    // We pass the insecure HTTP server because the Vite dev proxy targets port
+    // 19090 (SCRYPTED_INSECURE_PORT) and cannot easily proxy through the
+    // self-signed TLS cert on 9090. In production the addon reverse-proxies
+    // everything, so both servers receive the upgrade.
+    wsBridge = new CamerasWebSocketBridge(cameraService);
+    wsBridge.attachServer(httpServer);
+    // Also attach to HTTPS so production direct-connect clients work.
+    wsBridge.attachServer(httpsServer as unknown as import('http').Server);
+    console.log('[CamerasWS] WebSocket bridge attached to HTTP and HTTPS servers.');
+    // Expose bridge on the runtime so camera/event handlers can call broadcastEvent()
+    (scrypted as any).wsBridge = wsBridge;
+
+    await listenServerPort('SCRYPTED_SECURE_PORT',   SCRYPTED_SECURE_PORT,   httpsServer);
+    await listenServerPort('SCRYPTED_INSECURE_PORT', SCRYPTED_INSECURE_PORT, httpServer);
 
     console.log('#######################################################');
     console.log(`Scrypted Volume           : ${volumeDir}`);

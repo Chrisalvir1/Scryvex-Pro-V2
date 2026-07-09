@@ -13,7 +13,7 @@ interface WsMessage {
 }
 
 interface WsEvent {
-    type: 'camera_event' | 'camera_list_updated' | 'pong' | 'error';
+    type: 'camera_event' | 'camera_list_updated' | 'pong' | 'error' | 'cameras.updated';
     payload: unknown;
 }
 
@@ -38,19 +38,9 @@ export class CamerasWebSocketBridge {
     private clients: Set<WsClient> = new Set();
     private cameraService: CameraService;
 
-    constructor(httpServer: Server, cameraService: CameraService) {
+    constructor(cameraService: CameraService) {
         this.cameraService = cameraService;
         this.wss = new WebSocketServer({ noServer: true });
-
-        // Let the parent server handle the HTTP upgrade for /api/ws/cameras
-        httpServer.on('upgrade', (req: IncomingMessage, socket: any, head: Buffer) => {
-            const url = req.url ?? '';
-            if (url === '/api/ws/cameras' || url.startsWith('/api/ws/cameras?')) {
-                this.wss.handleUpgrade(req, socket, head, (ws) => {
-                    this.wss.emit('connection', ws, req);
-                });
-            }
-        });
 
         this.wss.on('connection', (ws: WebSocket) => {
             const client: WsClient = { ws, subscriptions: new Set(['*']) };
@@ -75,6 +65,20 @@ export class CamerasWebSocketBridge {
                 console.warn('[CamerasWS] Client error:', err.message);
                 this.clients.delete(client);
             });
+        });
+    }
+
+    /**
+     * Attaches the WebSocket server upgrade handler to an HTTP/HTTPS server.
+     */
+    attachServer(httpServer: Server) {
+        httpServer.on('upgrade', (req: IncomingMessage, socket: any, head: Buffer) => {
+            const url = req.url ?? '';
+            if (url === '/api/ws/cameras' || url.startsWith('/api/ws/cameras?')) {
+                this.wss.handleUpgrade(req, socket, head, (ws) => {
+                    this.wss.emit('connection', ws, req);
+                });
+            }
         });
     }
 
@@ -126,6 +130,25 @@ export class CamerasWebSocketBridge {
      */
     broadcastListUpdate() {
         const payload: WsEvent = { type: 'camera_list_updated', payload: null };
+        const data = JSON.stringify(payload);
+        for (const client of this.clients) {
+            if (client.ws.readyState === WebSocket.OPEN) {
+                client.ws.send(data);
+            }
+        }
+    }
+
+    /**
+     * Notifies clients about specific camera updates (created, updated, deleted).
+     */
+    broadcastCamerasUpdated(reason: string, cameraId: string) {
+        const payload: WsEvent = {
+            type: 'cameras.updated',
+            payload: {
+                reason,
+                cameraId
+            }
+        };
         const data = JSON.stringify(payload);
         for (const client of this.clients) {
             if (client.ws.readyState === WebSocket.OPEN) {
