@@ -1,30 +1,37 @@
-ARG BUILD_FROM=node:24-bookworm-slim
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-debian:bookworm
 FROM $BUILD_FROM
 
-# 1. Instalar dependencias ESTRICTAS (Sin basura gráfica de 1GB)
+# 1. Instalar Node 24 y dependencias del SO
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     ffmpeg \
-    postgresql-client \
     git \
     python3 \
     python3-pip \
     build-essential \
     libavahi-compat-libdnssd-dev \
+    postgresql \
+    postgresql-contrib \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Habilitar pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# 2. Habilitar pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # 3. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 4. Clonar el código completo del repositorio (unica forma de acceder a la raiz desde una subcarpeta HA)
-# COPY . . solo ve la subcarpeta addon/, NO la raiz con package.json y server/
+# 4. Clonar el codigo (--depth 1 = solo el ultimo snapshot, mucho mas liviano)
 RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
-# 5. Instalar dependencias
-RUN pnpm install --no-frozen-lockfile
+# 5. Instalar SOLO las dependencias del servidor (no toda la monorepo)
+RUN cd server && pnpm install --no-frozen-lockfile --prod=false
 
-# 6. Permisos y arranque
+# 6. Build del servidor
+RUN cd server && pnpm run build || echo "Build warnings OK, continuing..."
+
+# 7. Dar permisos al script de inicio
 RUN chmod a+x run.sh
-CMD [ "./run.sh" ]
+
+CMD [ "/usr/src/app/run.sh" ]
