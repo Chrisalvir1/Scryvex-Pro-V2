@@ -22,11 +22,12 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 # 3. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 4. Clonar el codigo (--depth 1 = solo el ultimo snapshot, mucho mas liviano)
-RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
+# 4. Clonar el codigo CON submodulos (external/werift, etc son submodulos obligatorios)
+RUN git clone --depth 1 --recurse-submodules --shallow-submodules \
+    https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
-# 5. Instalar SOLO las dependencias del servidor (no toda la monorepo)
-RUN cd server && pnpm install --no-frozen-lockfile --prod=false
+# 5. Instalar dependencias desde la raiz (pnpm workspace resuelve todo junto)
+RUN pnpm install --no-frozen-lockfile
 
 # 6. Build del servidor
 RUN cd server && pnpm run build || echo "Build warnings OK, continuing..."
