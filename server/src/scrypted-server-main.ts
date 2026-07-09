@@ -27,6 +27,11 @@ import type { ServiceControl } from './services/service-control';
 import { setScryptedUserPassword, UsersService } from './services/users';
 import { sleep } from './sleep';
 import { ONE_DAY_MILLISECONDS, UserToken } from './usertoken';
+// Scryvex Pro — Camera BFF layer
+import { CameraService } from './api/camera-service';
+import { createCamerasRouter } from './api/cameras-router';
+import { CamerasWebSocketBridge } from './api/cameras-ws';
+import { Pool } from 'pg';
 
 export type Runtime = ScryptedRuntime;
 
@@ -149,6 +154,17 @@ async function start(mainFilename: string, options?: {
     const dbPath = path.join(volumeDir, 'scrypted.db');
     const db = new Level(dbPath);
     await db.open();
+
+    // Scryvex Pro — initialize camera service and run migrations
+    const pgPool = new Pool({
+        connectionString: process.env.DATABASE_URL || 'postgresql://localhost/scryvex',
+    });
+    const cameraService = new CameraService(pgPool);
+    try {
+        await cameraService.migrate();
+    } catch (err: any) {
+        console.error('[CameraService] Migration failed (PostgreSQL may not be ready):', err.message);
+    }
 
     let certSetting = await db.tryGet(Settings, 'certificate') as Settings;
     let keyPair: ReturnType<typeof createSelfSignedCertificate> = certSetting?.value;
@@ -779,6 +795,9 @@ async function start(mainFilename: string, options?: {
             })
         }
     });
+
+    // Scryvex Pro — Camera REST API (BFF layer)
+    app.use('/api/cameras', createCamerasRouter(cameraService));
 
     // Scryvex Pro Custom Frontend integration
     const frontendPath = path.resolve(__dirname, '../../frontend/dist');
