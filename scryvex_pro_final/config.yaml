@@ -1,6 +1,5 @@
 name: "Scryvex Pro"
 slug: "scryvex_pro_final"
-url: "https://github.com/Chrisalvir1/Scryvex-Pro-V2"
 version: "1.0.0"
 description: "Zero-Latency Local-First NVR con YOLOv10 y Matter 1.6"
 arch:
@@ -11,9 +10,9 @@ arch:
   - i386
 init: false
 host_network: true
-map:
-  - config:rw
 panel_icon: mdi:cctv
 panel_title: "Scryvex PRO"
 panel_admin: false
 webui: "http://[HOST]:9090"
+options: {}
+schema: {}
