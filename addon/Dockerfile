@@ -1,7 +1,7 @@
 ARG BUILD_FROM=node:24-bookworm-slim
 FROM $BUILD_FROM
 
-# 1. Instalar dependencias del SO
+# 1. Instalar dependencias ESTRICTAS (Sin basura gráfica de 1GB)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     postgresql-client \
@@ -18,10 +18,11 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # 3. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 4. Copiar todo el código localmente (SIN GIT CLONE)
-COPY . .
+# 4. Clonar el código completo del repositorio (unica forma de acceder a la raiz desde una subcarpeta HA)
+# COPY . . solo ve la subcarpeta addon/, NO la raiz con package.json y server/
+RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
 
-# 5. Instalar dependencias (Saltando errores de nube y lockfile)
+# 5. Instalar dependencias
 RUN pnpm install --no-frozen-lockfile
 
 # 6. Permisos y arranque
