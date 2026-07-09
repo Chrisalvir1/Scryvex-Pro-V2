@@ -571,7 +571,7 @@ async function start(mainFilename: string, options?: {
             res.send({});
         }
         else {
-            res.redirect('./endpoint/.scryvex_pro/core/public/');
+            res.redirect('./endpoint/@scrypted/core/public/');
         }
     });
 
@@ -780,7 +780,7 @@ async function start(mainFilename: string, options?: {
         }
     });
 
-    app.get('/', (_req, res) => res.redirect('./endpoint/.scryvex_pro/core/public/'));
+    app.get('/', (_req, res) => res.redirect('./endpoint/@scrypted/core/public/'));
 
     const hookUpgrade = (server: net.Server | tls.Server) => {
         server.on('upgrade', (req, socket, upgradeHead) => {
