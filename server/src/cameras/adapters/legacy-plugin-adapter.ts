@@ -9,6 +9,8 @@ interface LegacyPluginHost {
 }
 
 export class LegacyPluginMediaProviderAdapter implements CameraMediaProvider, DeviceControlProvider {
+    readonly protocol = 'PLUGIN' as const;
+
     constructor(private host: LegacyPluginHost, private pluginId: string) {}
 
     async getMediaSources(deviceId: string, signal?: AbortSignal): Promise<MediaSourceDiscoveryResult> {

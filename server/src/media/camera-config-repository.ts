@@ -4,6 +4,7 @@ export interface CameraConfig {
     id: string;
     ip: string;
     port: number;
+    protocol?: string;
     onvif_port?: number;
     rtsp_url?: string;
     config: Record<string, unknown>;
@@ -23,6 +24,7 @@ export class CameraConfigRepository {
             id: camera.id,
             ip: camera.ip,
             port: camera.port,
+            protocol: camera.protocol,
             onvif_port: camera.onvif_port,
             rtsp_url: camera.rtsp_url,
             config: camera.config,

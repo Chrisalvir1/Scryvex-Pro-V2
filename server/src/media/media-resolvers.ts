@@ -1,21 +1,17 @@
 import type { Readable } from 'stream';
 import { MediaSourceDescriptor, MediaOperationError } from './media-source';
 import { ConnectionSecretStore } from './credential-store';
+import { MediaSourceLocatorStore } from './media-locator-store';
 import { cameraStreamUrl } from '../cameras/camera-adapter';
 
 export interface ResolvedMediaInput {
     kind: 'rtsp' | 'http' | 'hls' | 'webrtc' | 'pipe' | 'buffer';
-    /** FFmpeg/FFprobe input arguments. For pipe/buffer sources, includes '-i pipe:0'. */
     ffmpegInputArguments: string[];
     probeStrategy: 'ffprobe' | 'buffer_magic' | 'webrtc_analyzer';
     redactedDescription: string;
-    /** Stream to pipe into FFmpeg stdin. Requires stdio[0]='pipe'. */
     inputStream?: Readable;
-    /** Buffer to feed into FFmpeg stdin. */
     inputBuffer?: Buffer;
-    /** Factory for re-creating the input stream on retry. */
     inputFactory?: (signal?: AbortSignal) => Promise<Readable>;
-    /** MIME type of the source (from plugin MediaObject). */
     mimeType?: string;
     /** Must always be called in a finally block. async and idempotent. */
     cleanup?: () => Promise<void>;
@@ -54,8 +50,14 @@ export class MediaInputResolverRegistry {
     }
 }
 
-/** Resolves RTSP/ONVIF sources */
+/**
+ * Resolves RTSP and ONVIF sources.
+ * - RTSP: sourceLocatorRef is the raw URI (no credentials); credentials added via cameraStreamUrl.
+ * - ONVIF: sourceLocatorRef is the ONVIF profile token (opaque); locatorStore reconstructs the URI.
+ */
 export class RtspInputResolver implements MediaInputResolver {
+    constructor(private readonly locatorStore?: MediaSourceLocatorStore) {}
+
     canResolve(descriptor: MediaSourceDescriptor): boolean {
         return descriptor.sourceType === 'rtsp' || descriptor.sourceType === 'onvif';
     }
@@ -65,18 +67,24 @@ export class RtspInputResolver implements MediaInputResolver {
         secretStore: ConnectionSecretStore,
         signal?: AbortSignal
     ): Promise<ResolvedMediaInput> {
-        if (!descriptor.sourceLocatorRef) {
-            throw new MediaOperationError('RTSP source missing sourceLocatorRef', 'not_retryable');
+        let baseUrl: string;
+        if (this.locatorStore && descriptor.sourceType === 'onvif') {
+            if (!descriptor.sourceLocatorRef) {
+                throw new MediaOperationError('ONVIF source missing sourceLocatorRef (profile token)', 'not_retryable');
+            }
+            baseUrl = await this.locatorStore.resolveLocatorUri(descriptor, signal);
+        } else {
+            if (!descriptor.sourceLocatorRef) {
+                throw new MediaOperationError('RTSP source missing sourceLocatorRef', 'not_retryable');
+            }
+            baseUrl = descriptor.sourceLocatorRef;
         }
 
         const auth = descriptor.credentialRef
             ? await secretStore.resolveAuthorization(descriptor.credentialRef, signal)
             : { type: 'none' as const };
 
-        // sourceLocatorRef for RTSP is the raw URI stored in camera config
-        const baseUrl = descriptor.sourceLocatorRef;
         let resolvedUrl: string;
-
         try {
             resolvedUrl = cameraStreamUrl(
                 { username: auth.username, password: auth.password },
@@ -87,17 +95,16 @@ export class RtspInputResolver implements MediaInputResolver {
         }
 
         const transport = descriptor.transport === 'udp' ? 'udp' : 'tcp';
-        const ffmpegArgs = [
-            '-rtsp_transport', transport,
-            '-rw_timeout', '10000000',
-            '-i', resolvedUrl,
-        ];
 
         return {
             kind: 'rtsp',
-            ffmpegInputArguments: ffmpegArgs,
+            ffmpegInputArguments: [
+                '-rtsp_transport', transport,
+                '-rw_timeout', '10000000',
+                '-i', resolvedUrl,
+            ],
             probeStrategy: 'ffprobe',
-            redactedDescription: resolvedUrl.replace(/:\/\/[^@]+@/, '://***:***@'),
+            redactedDescription: resolvedUrl.replace(/:\/{2}[^@]+@/, '://***:***@'),
         };
     }
 }
@@ -143,7 +150,7 @@ export class HttpInputResolver implements MediaInputResolver {
     }
 }
 
-/** Resolves HLS streams */
+/** Resolves HLS streams. Note: 'file' protocol intentionally excluded to prevent directory traversal. */
 export class HlsInputResolver implements MediaInputResolver {
     // Allowed extensions — no wildcard
     private static readonly ALLOWED_EXTENSIONS = ['m3u8', 'ts', 'm4s', 'aac', 'mp4'];
@@ -166,7 +173,7 @@ export class HlsInputResolver implements MediaInputResolver {
             kind: 'hls',
             ffmpegInputArguments: [
                 '-allowed_extensions', HlsInputResolver.ALLOWED_EXTENSIONS.join(','),
-                '-protocol_whitelist', 'file,http,https,tcp,tls,crypto',
+                '-protocol_whitelist', 'http,https,tcp,tls,crypto',
                 '-i', url,
             ],
             probeStrategy: 'ffprobe',
@@ -183,8 +190,8 @@ export class PipeInputResolver implements MediaInputResolver {
 
     async resolve(
         descriptor: MediaSourceDescriptor,
-        secretStore: ConnectionSecretStore,
-        signal?: AbortSignal
+        _secretStore: ConnectionSecretStore,
+        _signal?: AbortSignal
     ): Promise<ResolvedMediaInput> {
         return {
             kind: 'pipe',
@@ -204,8 +211,8 @@ export class BufferInputResolver implements MediaInputResolver {
 
     async resolve(
         descriptor: MediaSourceDescriptor,
-        secretStore: ConnectionSecretStore,
-        signal?: AbortSignal
+        _secretStore: ConnectionSecretStore,
+        _signal?: AbortSignal
     ): Promise<ResolvedMediaInput> {
         return {
             kind: 'buffer',
@@ -223,9 +230,9 @@ export class WebRtcInputResolver implements MediaInputResolver {
     }
 
     async resolve(
-        descriptor: MediaSourceDescriptor,
-        secretStore: ConnectionSecretStore,
-        signal?: AbortSignal
+        _descriptor: MediaSourceDescriptor,
+        _secretStore: ConnectionSecretStore,
+        _signal?: AbortSignal
     ): Promise<ResolvedMediaInput> {
         throw new MediaOperationError(
             'WebRTC input requires browser-side SDP negotiation; unsupported in server-side FFmpeg pipeline',

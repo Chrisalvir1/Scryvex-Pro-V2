@@ -1,10 +1,20 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { Readable } from 'node:stream';
 
+const REDACT_CREDENTIAL_RE = /([a-zA-Z][a-zA-Z\d+\-.]*:\/\/)[^:@/\s]+:[^@\s]+@/g;
+
+function redactStderr(raw: string): string {
+    return raw.replace(REDACT_CREDENTIAL_RE, '$1***:***@');
+}
+
 export interface MediaProcessOptions {
     command: string;
     args: string[];
     timeoutMs?: number;
+    /** Default 8 MiB. If stdout exceeds this the process is killed. */
+    maxStdoutBytes?: number;
+    /** Default 64 KiB. stderr is silently truncated beyond this. */
+    maxStderrBytes?: number;
     signal?: AbortSignal;
     inputStream?: Readable;
     inputBuffer?: Buffer;
@@ -15,8 +25,11 @@ export interface MediaProcessOptions {
 export interface MediaProcessResult {
     exitCode: number | null;
     stdout: Buffer;
+    /** Redacted stderr — no credentials. */
     stderr: string;
     durationMs: number;
+    timedOut: boolean;
+    killedForSize: boolean;
 }
 
 export interface IMediaProcessRunner {
@@ -27,78 +40,129 @@ export interface IMediaProcessRunner {
     };
 }
 
+const DEFAULT_MAX_STDOUT = 8 * 1024 * 1024;  // 8 MiB
+const DEFAULT_MAX_STDERR = 64 * 1024;         // 64 KiB
+const SIGKILL_GRACE_MS   = 3_000;
+
+function killGracefully(child: ChildProcess): void {
+    if (child.killed || child.exitCode !== null) return;
+    child.kill('SIGTERM');
+    const t = setTimeout(() => {
+        if (!child.killed && child.exitCode === null) child.kill('SIGKILL');
+    }, SIGKILL_GRACE_MS);
+    if (t.unref) t.unref();
+}
+
 export class DefaultMediaProcessRunner implements IMediaProcessRunner {
     run(options: MediaProcessOptions): Promise<MediaProcessResult> {
-        const { promise } = this.spawnStreaming(options);
-        return promise;
+        return this.spawnStreaming(options).promise;
     }
 
-    spawnStreaming(options: MediaProcessOptions): { process: ChildProcess, promise: Promise<MediaProcessResult> } {
+    spawnStreaming(options: MediaProcessOptions): { process: ChildProcess; promise: Promise<MediaProcessResult> } {
         const start = Date.now();
+        const maxStdout = options.maxStdoutBytes ?? DEFAULT_MAX_STDOUT;
+        const maxStderr = options.maxStderrBytes ?? DEFAULT_MAX_STDERR;
+
+        const hasStdin = !!(options.inputStream || options.inputBuffer);
         const child = spawn(options.command, options.args, {
-            stdio: [options.inputStream || options.inputBuffer ? 'pipe' : 'ignore', 'pipe', 'pipe']
+            stdio: [hasStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
         });
 
+        // ── stdin ─────────────────────────────────────────────────────────────
         if (child.stdin) {
             if (options.inputBuffer) {
                 child.stdin.write(options.inputBuffer);
                 child.stdin.end();
             } else if (options.inputStream) {
                 options.inputStream.pipe(child.stdin);
-                options.inputStream.on('error', () => {
-                    if (!child.killed) child.kill('SIGKILL');
-                });
+                options.inputStream.on('error', () => killGracefully(child));
             }
         }
 
+        // ── stdout ────────────────────────────────────────────────────────────
+        let stdoutBytes = 0;
+        let killedForSize = false;
         const stdoutChunks: Buffer[] = [];
-        let stderr = '';
 
-        child.stdout?.on('data', chunk => {
-            if (options.onStdout) options.onStdout(chunk);
-            else stdoutChunks.push(chunk);
-        });
-        
-        child.stderr?.on('data', chunk => {
-            if (options.onStderr) options.onStderr(chunk);
-            stderr += chunk.toString();
+        child.stdout?.on('data', (chunk: Buffer) => {
+            stdoutBytes += chunk.length;
+            if (stdoutBytes > maxStdout) {
+                if (!killedForSize) {
+                    killedForSize = true;
+                    killGracefully(child);
+                }
+                return;
+            }
+            if (options.onStdout) {
+                options.onStdout(chunk);
+            } else {
+                stdoutChunks.push(chunk);
+            }
         });
 
+        // ── stderr ────────────────────────────────────────────────────────────
+        let stderrRaw = '';
+        let stderrBytes = 0;
+        child.stderr?.on('data', (chunk: Buffer) => {
+            if (options.onStderr) {
+                options.onStderr(chunk);
+            } else if (stderrBytes < maxStderr) {
+                const text = chunk.toString('utf8');
+                const remaining = maxStderr - stderrBytes;
+                stderrRaw += text.length > remaining ? text.slice(0, remaining) : text;
+                stderrBytes += text.length;
+            }
+        });
+
+        // ── timeout ───────────────────────────────────────────────────────────
+        let timedOut = false;
         let timer: NodeJS.Timeout | undefined;
         if (options.timeoutMs) {
             timer = setTimeout(() => {
-                if (!child.killed) child.kill('SIGKILL');
+                timedOut = true;
+                killGracefully(child);
             }, options.timeoutMs);
+            if (timer.unref) timer.unref();
         }
 
-        if (options.signal) {
-            options.signal.addEventListener('abort', () => {
-                if (timer) clearTimeout(timer);
-                if (!child.killed) child.kill('SIGKILL');
-            });
-        }
+        // ── abort signal ──────────────────────────────────────────────────────
+        const abortHandler = () => {
+            if (timer) clearTimeout(timer);
+            killGracefully(child);
+        };
+        options.signal?.addEventListener('abort', abortHandler, { once: true });
 
+        // ── promise ───────────────────────────────────────────────────────────
         const promise = new Promise<MediaProcessResult>((resolve) => {
-            child.on('close', code => {
+            const finish = (code: number | null) => {
                 if (timer) clearTimeout(timer);
+                options.signal?.removeEventListener('abort', abortHandler);
+
+                // Close any piped inputStream to prevent resource leaks
+                if (options.inputStream && !options.inputStream.destroyed) {
+                    try { options.inputStream.destroy(); } catch { /* ignore */ }
+                }
+
                 resolve({
-                    exitCode: (options.signal?.aborted || (options.timeoutMs && Date.now() - start > options.timeoutMs)) ? null : code,
+                    exitCode: (timedOut || options.signal?.aborted) ? null : code,
                     stdout: Buffer.concat(stdoutChunks),
-                    stderr,
-                    durationMs: Date.now() - start
+                    stderr: redactStderr(stderrRaw),
+                    durationMs: Date.now() - start,
+                    timedOut,
+                    killedForSize,
                 });
-            });
-            child.on('error', err => {
-                if (timer) clearTimeout(timer);
-                resolve({
-                    exitCode: null,
-                    stdout: Buffer.alloc(0),
-                    stderr: `Spawn error: ${err.message}`,
-                    durationMs: Date.now() - start
-                });
+            };
+
+            child.on('close', finish);
+            child.on('error', (err) => {
+                stderrRaw += `\nSpawn error: ${err.message}`;
+                finish(null);
             });
         });
 
         return { process: child, promise };
     }
 }
+
+
+

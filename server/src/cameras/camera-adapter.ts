@@ -137,7 +137,7 @@ export interface CameraCapabilities {
     video: { profiles: StreamProfile[]; selectedProfileId?: string; supportsH264: boolean; supportsH265: boolean; supportsTranscoding: boolean };
     audio: { available: boolean; input: boolean; output: boolean; codecs: string[]; selectedCodec?: string; sampleRates: number[] };
     controls: { ptz: boolean; light: boolean; lightControl: boolean; microphone: boolean; speaker: boolean; twoWayAudio: boolean; siren: boolean; sirenControl: boolean; motionEvents: boolean };
-    preview: { snapshot: boolean; rtsp: boolean; mjpeg: boolean; webrtc: boolean; hls: boolean };
+    preview: { snapshot: boolean; rtsp: boolean; mjpeg: boolean; webrtc: boolean; hls: boolean; remux: boolean };
     yolo: { available: boolean; reason?: string };
     matter: { available: boolean; published: boolean; commissioned: boolean; supportsMatterRemux: boolean; reason?: string };
     /** Human-readable ONVIF connection note when ONVIF succeeded but RTSP failed. */
@@ -275,7 +275,7 @@ export function emptyCapabilities(source: CameraCapabilities['source']): CameraC
         video: { profiles: [], supportsH264: false, supportsH265: false, supportsTranscoding: false },
         audio: { available: false, input: false, output: false, codecs: [], sampleRates: [] },
         controls: { ptz: false, light: false, lightControl: false, microphone: false, speaker: false, twoWayAudio: false, siren: false, sirenControl: false, motionEvents: false },
-        preview: { snapshot: false, rtsp: false, mjpeg: false, webrtc: false, hls: false },
+        preview: { snapshot: false, rtsp: false, mjpeg: false, webrtc: false, hls: false, remux: false },
         yolo: { available: false, reason: 'No hay un runtime YOLO configurado' },
         matter: { available: false, published: false, commissioned: false, supportsMatterRemux: false, reason: 'Matterbridge no está conectado' },
         capabilityEvidence: [],

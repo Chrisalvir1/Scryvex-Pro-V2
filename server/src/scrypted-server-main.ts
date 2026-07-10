@@ -29,6 +29,7 @@ import { sleep } from './sleep';
 import { ONE_DAY_MILLISECONDS, UserToken } from './usertoken';
 // Scryvex Pro — Camera BFF layer
 import { CameraService } from './api/camera-service';
+import { CameraProbe } from './api/camera-probe';
 import { createCamerasRouter } from './api/cameras-router';
 import { createPluginsRouter } from './api/plugins-router';
 import { CamerasWebSocketBridge } from './api/cameras-ws';
@@ -36,6 +37,18 @@ import { SystemService } from './api/system-service';
 import { SystemDiagnosticsService } from './media/system-diagnostics';
 import { createSystemRouter } from './api/system-router';
 import { Pool } from 'pg';
+// V4 Media Architecture — static imports (B1)
+import { CameraConfigRepository } from './media/camera-config-repository';
+import { DatabaseConnectionSecretStore } from './media/credential-store';
+import { MediaInputResolverRegistry, RtspInputResolver, HttpInputResolver, HlsInputResolver, PipeInputResolver, BufferInputResolver } from './media/media-resolvers';
+import { MediaSourceSessionManager } from './media/media-session-manager';
+import { MediaSourceSelector } from './media/media-selector';
+import { PreviewService } from './media/preview-service';
+import { CameraProviderRegistry } from './cameras/camera-provider-registry';
+import { RtspAdapter } from './cameras/adapters/rtsp-adapter';
+import { OnvifAdapter } from './cameras/adapters/onvif-adapter';
+import { LegacyPluginMediaProviderAdapter } from './cameras/adapters/legacy-plugin-adapter';
+import { MediaProbeService } from './media/media-probe';
 
 export type Runtime = ScryptedRuntime;
 
@@ -820,38 +833,31 @@ async function start(mainFilename: string, options?: {
 
     let wsBridge: import('./api/cameras-ws').CamerasWebSocketBridge | undefined;
 
-    // --- V4 Media Architecture Injection ---
-    const { CameraConfigRepository } = require('./media/camera-config-repository');
-    const { DatabaseConnectionSecretStore } = require('./media/credential-store');
-    const { MediaInputResolverRegistry, RtspInputResolver, HttpInputResolver, HlsInputResolver, PipeInputResolver, BufferInputResolver } = require('./media/media-resolvers');
-    const { MediaSourceSessionManager } = require('./media-session-manager');
-    const { MediaSourceSelector } = require('./media-selector');
-    const { PreviewService } = require('./media/preview-service');
-    const { CameraProbe } = require('./api/camera-probe');
-    const { CameraProviderRegistry } = require('./cameras/camera-provider-registry');
-    const { RtspAdapter } = require('./cameras/adapters/rtsp-adapter');
-    const { OnvifAdapter } = require('./cameras/adapters/onvif-adapter');
-    const { MediaProbeService } = require('./media/media-probe');
-
+    // --- V4 Media Architecture Injection (B1: static imports above, B2: explicit DI) ---
     const configRepo = new CameraConfigRepository(cameraService);
     const secretStore = new DatabaseConnectionSecretStore(cameraService);
-    
-    const providerRegistry = new CameraProviderRegistry();
+
+    // B3: registry receives configRepo to resolve provider by camera protocol
+    const providerRegistry = new CameraProviderRegistry(configRepo);
+    const onvifAdapter = new OnvifAdapter(configRepo, secretStore);
     providerRegistry.register(new RtspAdapter(configRepo));
-    providerRegistry.register(new OnvifAdapter(configRepo, secretStore));
+    providerRegistry.register(onvifAdapter);
+    // B8: register LegacyPluginMediaProviderAdapter stub (not yet connected to real plugin host)
+    // NOTE: Ring, UniFi, Nest are NOT declared as supported until real integration tests pass.
+    // providerRegistry.register(new LegacyPluginMediaProviderAdapter(pluginHost, 'scrypted-plugin'));
 
     const resolverRegistry = new MediaInputResolverRegistry();
-    resolverRegistry.register(new RtspInputResolver());
+    // B7: RtspInputResolver receives onvifAdapter as MediaSourceLocatorStore (Opción B)
+    resolverRegistry.register(new RtspInputResolver(onvifAdapter));
     resolverRegistry.register(new HttpInputResolver());
     resolverRegistry.register(new HlsInputResolver());
     resolverRegistry.register(new PipeInputResolver());
     resolverRegistry.register(new BufferInputResolver());
 
+    // B3: sessionManager uses getProviderForCamera — resolved async in MediaSourceSessionManager
     const sessionManager = new MediaSourceSessionManager(
-        (pluginId: string | undefined, deviceId: string) => {
-            // For now, always use RTSP or ONVIF (plugin architecture will wrap via adapter)
-            // Ideally we get protocol from camera config, fallback to RTSP
-            return providerRegistry.getProviderForProtocol('RTSP');
+        async (pluginId: string | undefined, deviceId: string) => {
+            return providerRegistry.getProviderForCamera(deviceId);
         },
         resolverRegistry,
         secretStore
@@ -859,16 +865,20 @@ async function start(mainFilename: string, options?: {
 
     const selector = new MediaSourceSelector();
     const mediaProbe = new MediaProbeService();
-    const previewService = new PreviewService(sessionManager, selector, providerRegistry);
     const probeService = new CameraProbe(cameraService, providerRegistry, mediaProbe, resolverRegistry, secretStore);
-
-    // Make them available globally via locals for routers that need them before full refactor
-    app.locals.previewService = previewService;
-    app.locals.probeService = probeService;
+    // B4: PreviewService now receives mediaProbe, resolverRegistry, secretStore — no simulation
+    const previewService = new PreviewService(
+        sessionManager, selector, providerRegistry, mediaProbe, resolverRegistry, secretStore
+    );
     // ---------------------------------------
 
     app.use('/api/system', createSystemRouter());
-    app.use('/api/cameras', createCamerasRouter(cameraService, pgPool, () => wsBridge));
+    // B2: explicit injection — no app.locals for probeService/previewService
+    app.use('/api/cameras', createCamerasRouter(cameraService, pgPool, () => wsBridge, {
+        probeService,
+        previewService,
+        onvifAdapter,
+    }));
     app.use('/api/plugins', createPluginsRouter(pgPool));
 
     // Scryvex Pro Custom Frontend integration

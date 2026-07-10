@@ -7,7 +7,7 @@ export class MediaSourceSessionManager {
     private refreshPromises = new Map<string, Promise<MediaSourceDescriptor>>();
 
     constructor(
-        private providerLookup: (pluginId: string | undefined, deviceId: string) => CameraMediaProvider,
+        private providerLookup: (pluginId: string | undefined, deviceId: string) => CameraMediaProvider | Promise<CameraMediaProvider>,
         private registry: MediaInputResolverRegistry,
         private secretStore: ConnectionSecretStore
     ) {}
@@ -100,7 +100,7 @@ export class MediaSourceSessionManager {
         }
 
         const promise = (async () => {
-            const provider = this.providerLookup(pluginId, deviceId);
+            const provider = await Promise.resolve(this.providerLookup(pluginId, deviceId));
             if (!provider.refreshMediaSource) {
                 // Fallback to getMediaSources
                 const discovery = await provider.getMediaSources(deviceId, signal);
