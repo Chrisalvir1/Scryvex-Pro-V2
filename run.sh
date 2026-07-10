@@ -44,4 +44,29 @@ export SCRYPTED_DEBUG_PORT=10082
 
 echo "Arrancando Scryvex Pro Core en Node 24..."
 cd /usr/src/app/server
-pnpm run serve
+
+# Modo Desarrollo Opcional
+if [ "$SCRYVEX_BUILD_ON_START" = "true" ]; then
+    echo "[DEV] SCRYVEX_BUILD_ON_START activo. Compilando backend..."
+    pnpm run build
+fi
+
+# Validar que el código compilado existe
+if [ ! -f "dist/scrypted-main.js" ]; then
+    echo "¡ERROR CRÍTICO! No se encontró dist/scrypted-main.js."
+    echo "Esto indica que la imagen Docker se construyó sin compilar el backend."
+    echo "El add-on se detendrá para evitar caché corrupta."
+    exit 1
+fi
+
+# Mostrar info de la versión instalada (generada en el Dockerfile)
+if [ -f "dist/build-info.json" ]; then
+    echo "=== Build Info ==="
+    cat dist/build-info.json
+    echo "=================="
+else
+    echo "[WARN] No se encontró dist/build-info.json. Usando versión desconocida."
+fi
+
+echo "Iniciando proceso principal..."
+node --expose-gc dist/scrypted-main.js

@@ -41,8 +41,13 @@ RUN node -e "const fs=require('fs'); let p='package.json'; let d=JSON.parse(fs.r
 # 8. Instalar (dangerouslyAllowAllBuilds en pnpm-workspace.yaml autoriza nativos)
 RUN pnpm install --no-frozen-lockfile
 
-# 8.5 Compilar UI React Frontend
+# 8.5 Compilar Backend y Frontend
+RUN pnpm --filter @scryvex/server run build
 RUN pnpm --filter frontend run build
+
+# 8.6 Validar build y generar build-info.json en la imagen
+RUN if [ ! -f "server/dist/scrypted-main.js" ]; then echo "Error: Backend build failed, scrypted-main.js not found!" && exit 1; fi \
+    && echo "{\"version\": \"$(cat addon/config.yaml | grep version | awk -F'\"' '{print $2}')\", \"buildTime\": \"$(date -Iseconds)\", \"node\": \"$(node -v)\", \"typescript\": \"7.0.2\"}" > server/dist/build-info.json
 
 # 9. Permisos y arranque
 RUN chmod a+x run.sh
