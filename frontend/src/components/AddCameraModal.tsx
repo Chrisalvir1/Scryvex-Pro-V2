@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import type { CreateCameraInput, CameraProtocol } from '../types/camera';
 
-const RingLogo = () => <img src="/assets/logos/ring.png" alt="Ring" className="w-9 h-9 object-contain" />;
-const WyzeLogo = () => <img src="/assets/logos/wyze.png" alt="Wyze" className="w-9 h-9 object-contain" />;
-const TapoLogo = () => <img src="/assets/logos/tapo.png" alt="Tapo" className="w-9 h-9 object-contain" />;
-const TuyaLogo = () => <img src="/assets/logos/tuya.png" alt="Tuya" className="w-9 h-9 object-contain" />;
-const EzvizLogo = () => <img src="/assets/logos/ezviz.png" alt="EZVIZ" className="w-9 h-9 object-contain" />;
-const HikvisionLogo = () => <img src="/assets/logos/hikvision.png" alt="Hikvision" className="w-9 h-9 object-contain" />;
-const ReoLogo = () => <img src="/assets/logos/reolink.png" alt="Reolink" className="w-9 h-9 object-contain" />;
-const DahuaLogo = () => <img src="/assets/logos/dahua.png" alt="Dahua" className="w-9 h-9 object-contain" />;
-const GoogleNestLogo = () => <img src="/assets/logos/google-nest.png" alt="Google Nest" className="w-9 h-9 object-contain" />;
-const ArloLogo = () => <img src="/assets/logos/arlo.png" alt="Arlo" className="w-9 h-9 object-contain" />;
+const assetUrl = (path: string) => {
+    const base = import.meta.env.BASE_URL || './';
+    return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+};
+
+const RingLogo = () => <img src={assetUrl('logos/ring.png')} alt="Ring" className="w-9 h-9 object-contain" />;
+const WyzeLogo = () => <img src={assetUrl('logos/wyze.png')} alt="Wyze" className="w-9 h-9 object-contain" />;
+const TapoLogo = () => <img src={assetUrl('logos/tapo.jpg')} alt="Tapo" className="w-9 h-9 object-contain" />;
+const TuyaLogo = () => <img src={assetUrl('logos/tuya.png')} alt="Tuya" className="w-9 h-9 object-contain" />;
+const EzvizLogo = () => <img src={assetUrl('logos/ezviz.png')} alt="EZVIZ" className="w-9 h-9 object-contain" />;
+const HikvisionLogo = () => <img src={assetUrl('logos/hikvision.png')} alt="Hikvision" className="w-9 h-9 object-contain" />;
+const ReoLogo = () => <img src={assetUrl('logos/reolink.png')} alt="Reolink" className="w-9 h-9 object-contain" />;
+const DahuaLogo = () => <img src={assetUrl('logos/dahua.png')} alt="Dahua" className="w-9 h-9 object-contain" />;
+const GoogleNestLogo = () => <img src={assetUrl('logos/google-nest.png')} alt="Google Nest" className="w-9 h-9 object-contain" />;
+const ArloLogo = () => <img src={assetUrl('logos/arlo.png')} alt="Arlo" className="w-9 h-9 object-contain" />;
 
 // ── Integration definitions ───────────────────────────────────────────────────
 type IntegrationConfig = {

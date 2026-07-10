@@ -20,24 +20,27 @@ const STATUS_LABELS: Record<string, string> = {
     unknown: 'DESCONOCIDO',
 };
 
-type ActiveTab = 'preview' | 'logs' | 'info' | 'matter' | 'sensors';
+const assetUrl = (path: string) => {
+    const base = import.meta.env.BASE_URL || './';
+    return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+};
 
 const BRAND_LOGOS: Record<string, string> = {
-    ring: '/logos/ring.png',
-    wyze: '/logos/wyze.png',
-    tapo: '/logos/tapo.jpg',
-    'tp-link': '/logos/tapo.jpg',
-    tuya: '/logos/tuya.png',
-    ezviz: '/logos/ezviz.png',
-    hikvision: '/logos/hikvision.png',
-    reolink: '/logos/reolink.png',
-    dahua: '/logos/dahua.png',
-    google: '/logos/google-nest.png',
-    nest: '/logos/google-nest.png',
-    arlo: '/logos/arlo.png',
-    vimtag: '/logos/vimtag.png',
-    rtsp: '/logos/rtsp.png',
-    onvif: '/logos/onvif.png',
+    ring: assetUrl('logos/ring.png'),
+    wyze: assetUrl('logos/wyze.png'),
+    tapo: assetUrl('logos/tapo.jpg'),
+    'tp-link': assetUrl('logos/tapo.jpg'),
+    tuya: assetUrl('logos/tuya.png'),
+    ezviz: assetUrl('logos/ezviz.png'),
+    hikvision: assetUrl('logos/hikvision.png'),
+    reolink: assetUrl('logos/reolink.png'),
+    dahua: assetUrl('logos/dahua.png'),
+    google: assetUrl('logos/google-nest.png'),
+    nest: assetUrl('logos/google-nest.png'),
+    arlo: assetUrl('logos/arlo.png'),
+    vimtag: assetUrl('logos/vimtag.png'),
+    rtsp: assetUrl('logos/rtsp.png'),
+    onvif: assetUrl('logos/onvif.png'),
 };
 
 // Helper to determine the camera brand logo based on its name

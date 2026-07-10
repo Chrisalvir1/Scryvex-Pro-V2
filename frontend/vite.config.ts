@@ -3,9 +3,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Use '/' for dev so absolute asset paths (/logos/*.png) resolve correctly.
-  // The build step will still output relative paths for the embedded Express server.
-  base: '/',
+  // Use './' for relative paths, critical for Home Assistant Ingress
+  base: './',
   plugins: [react()],
   server: {
     proxy: {

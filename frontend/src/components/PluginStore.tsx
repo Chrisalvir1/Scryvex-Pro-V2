@@ -10,6 +10,11 @@ type Plugin = {
     installed: boolean;
 };
 
+const assetUrl = (path: string) => {
+    const base = import.meta.env.BASE_URL || './';
+    return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+};
+
 export function PluginStore() {
     const [plugins, setPlugins] = useState<Plugin[]>([]);
     const [loading, setLoading] = useState(true);
@@ -90,7 +95,7 @@ export function PluginStore() {
                             {/* Use the icon URL from the API; fall back to a text avatar on 404 */}
                             <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center bg-white/5 border border-white/10">
                                 <img
-                                    src={p.icon}
+                                    src={assetUrl(p.icon)}
                                     alt={p.name}
                                     className="w-full h-full object-contain p-1"
                                     onError={(e) => {
