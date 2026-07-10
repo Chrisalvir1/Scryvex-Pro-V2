@@ -77,9 +77,13 @@ export class CamerasWebSocketBridge {
      * Attaches the WebSocket server upgrade handler to an HTTP/HTTPS server.
      */
     attachServer(server: NodeHttpServer) {
+        const WS_PATH = '/api/ws/cameras';
+        
         server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
             const url = req.url ?? '';
-            if (url === '/api/ws/cameras' || url.startsWith('/api/ws/cameras?')) {
+            console.info('[CamerasWS] Upgrade request:', url);
+            
+            if (url === WS_PATH || url.startsWith(`${WS_PATH}?`)) {
                 this.wss.handleUpgrade(req, socket, head, (ws) => {
                     this.wss.emit('connection', ws, req);
                 });
