@@ -25,9 +25,8 @@ RUN npm install -g typescript rimraf
 # 4. Directorio de trabajo
 WORKDIR /usr/src/app
 
-# 5. Clonar el repositorio base
-ARG CACHE_BUST=28
-RUN git clone --depth 1 https://github.com/Chrisalvir1/Scryvex-Pro-V2.git .
+# 5. Copiar el código del Add-on (provisto directamente por HA Supervisor)
+COPY . .
 
 # 6. Descargas manuales de submódulos (probado localmente - NECESARIOS)
 RUN rm -rf external/werift && git clone --depth 1 https://github.com/koush/werift-webrtc.git external/werift

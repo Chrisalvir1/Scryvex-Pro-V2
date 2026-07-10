@@ -1,14 +1,11 @@
 name: "Scryvex Pro V2"
-version: "2.1.28"
+version: "2.1.29"
 slug: "scryvex_pro_final"
 description: "Zero-Latency Local-First NVR con YOLOv10 y Matter 1.6"
 url: "https://github.com/Chrisalvir1/Scryvex-Pro-V2"
 arch:
   - aarch64
   - amd64
-  - armv7
-  - armhf
-  - i386
 init: false
 ingress: true
 ingress_port: 19090
