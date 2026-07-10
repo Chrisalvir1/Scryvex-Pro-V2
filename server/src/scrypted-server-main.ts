@@ -835,9 +835,11 @@ async function start(mainFilename: string, options?: {
     // self-signed TLS cert on 9090. In production the addon reverse-proxies
     // everything, so both servers receive the upgrade.
     wsBridge = new CamerasWebSocketBridge(cameraService);
-    wsBridge.attachServer(httpServer);
+    wsBridge.attachServer(httpServer as import('./api/cameras-ws').NodeHttpServer);
     // Also attach to HTTPS so production direct-connect clients work.
-    wsBridge.attachServer(httpsServer as unknown as import('http').Server);
+    if (httpsServer) {
+        wsBridge.attachServer(httpsServer as import('./api/cameras-ws').NodeHttpServer);
+    }
     console.log('[CamerasWS] WebSocket bridge attached to HTTP and HTTPS servers.');
     // Expose bridge on the runtime so camera/event handlers can call broadcastEvent()
     (scrypted as any).wsBridge = wsBridge;

@@ -1,6 +1,11 @@
-import { IncomingMessage, Server } from 'http';
+import { IncomingMessage } from 'http';
+import type { Server as HttpServer } from 'node:http';
+import type { Server as HttpsServer } from 'node:https';
+import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CameraService, CameraEvent } from './camera-service';
+
+export type NodeHttpServer = HttpServer | HttpsServer;
 
 interface WsClient {
     ws: WebSocket;
@@ -71,8 +76,8 @@ export class CamerasWebSocketBridge {
     /**
      * Attaches the WebSocket server upgrade handler to an HTTP/HTTPS server.
      */
-    attachServer(httpServer: Server) {
-        httpServer.on('upgrade', (req: IncomingMessage, socket: any, head: Buffer) => {
+    attachServer(server: NodeHttpServer) {
+        server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
             const url = req.url ?? '';
             if (url === '/api/ws/cameras' || url.startsWith('/api/ws/cameras?')) {
                 this.wss.handleUpgrade(req, socket, head, (ws) => {

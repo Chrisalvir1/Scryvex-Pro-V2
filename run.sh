@@ -40,6 +40,7 @@ su - postgres -c "psql -d scryvex_core -c \"GRANT ALL ON SCHEMA public TO scryve
 export DATABASE_URL="postgresql://scryvex:scryvex@localhost/scryvex_core"
 export SCRYPTED_VOLUME="/data/.scryvex_pro"
 export SCRYPTED_INSECURE_PORT=19090
+export SCRYPTED_DEBUG_PORT=10082
 
 echo "Arrancando Scryvex Pro Core en Node 24..."
 cd /usr/src/app/server
