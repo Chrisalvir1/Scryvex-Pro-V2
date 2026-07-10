@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Camera, CameraEvent, CreateCameraInput, WsServerMessage } from '../types/camera';
+import { apiUrl, websocketUrl } from '../lib/ingress-url';
 
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'error';
 
@@ -38,7 +39,8 @@ export function useScryptedCameras(): UseCamerasReturn {
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
         try {
-            const res = await fetch(API_BASE, { signal: controller.signal });
+            const url = apiUrl(API_BASE);
+            const res = await fetch(url, { signal: controller.signal, credentials: 'same-origin' });
             clearTimeout(timeoutId);
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             const data = await res.json() as { cameras: Camera[] };
@@ -63,9 +65,10 @@ export function useScryptedCameras(): UseCamerasReturn {
 
     // ── REST: add camera ──────────────────────────────────────────────────────
     const addCamera = useCallback(async (input: CreateCameraInput): Promise<Camera> => {
-        const res = await fetch(API_BASE, {
+        const res = await fetch(apiUrl(API_BASE), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify(input),
         });
         if (!res.ok) {
@@ -81,7 +84,7 @@ export function useScryptedCameras(): UseCamerasReturn {
 
     // ── REST: delete camera ───────────────────────────────────────────────────
     const deleteCamera = useCallback(async (id: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+        const res = await fetch(apiUrl(`${API_BASE}/${id}`), { method: 'DELETE', credentials: 'same-origin' });
         if (!res.ok) {
             const body = await res.json().catch(() => ({ error: res.statusText }));
             throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -95,8 +98,8 @@ export function useScryptedCameras(): UseCamerasReturn {
     const connectWs = useCallback(() => {
         if (!isMounted.current) return;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const url      = `${protocol}://${window.location.host}/api/ws/cameras`;
+        const url = websocketUrl('api/ws/cameras');
+        console.info('[WS] Connecting:', url);
 
         setConnectionState('connecting');
         const ws = new WebSocket(url);

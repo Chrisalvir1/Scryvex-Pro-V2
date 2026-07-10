@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { CreateCameraInput, CameraProtocol } from '../types/camera';
+import { apiUrl } from '../lib/ingress-url';
 
 const assetUrl = (path: string) => {
     const base = import.meta.env.BASE_URL || './';
@@ -230,9 +231,10 @@ export function AddCameraModal({ onClose, onAdd }: Props) {
         setIntSuccess(null);
         try {
             const fields = integrationFields[integrationId] ?? {};
-            const res = await fetch('/api/integrations/connect', {
+            const res = await fetch(apiUrl('api/integrations/connect'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({ provider: integrationId, credentials: fields }),
             });
             if (res.ok) {

@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { PluginStatus } from '../types/plugin';
+import { apiUrl } from '../lib/ingress-url';
 
 type Plugin = {
     id: string;
@@ -18,29 +20,68 @@ const assetUrl = (path: string) => {
 export function PluginStore() {
     const [plugins, setPlugins] = useState<Plugin[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [actionState, setActionState] = useState<Record<string, 'installing' | 'removing'>>({});
 
     useEffect(() => {
-        fetchPlugins();
+        const controller = new AbortController();
+
+        async function loadPlugins() {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const url = apiUrl('api/plugins');
+                console.info('[API] Plugins URL:', url);
+
+                const response = await fetch(url, {
+                    credentials: 'same-origin',
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`GET /api/plugins respondió ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                const pluginList = Array.isArray(data)
+                    ? data
+                    : Array.isArray(data.plugins)
+                        ? data.plugins
+                        : [];
+
+                setPlugins(pluginList);
+            } catch (err) {
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    return;
+                }
+                setError(err instanceof Error ? err.message : 'No se pudo cargar la tienda.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        void loadPlugins();
+
+        return () => controller.abort();
     }, []);
 
     const fetchPlugins = async () => {
         try {
-            const res = await fetch('/api/plugins');
+            const res = await fetch(apiUrl('api/plugins'));
             if (res.ok) {
                 setPlugins(await res.json());
             }
         } catch (err) {
             console.error('Error fetching plugins:', err);
-        } finally {
-            setLoading(false);
         }
     };
 
     const handleInstall = async (id: string) => {
         setActionState(prev => ({ ...prev, [id]: 'installing' }));
         try {
-            const res = await fetch(`/api/plugins/${id}/install`, { method: 'POST' });
+            const res = await fetch(apiUrl(`api/plugins/${id}/install`), { method: 'POST' });
             if (res.ok) {
                 await fetchPlugins();
             }
@@ -58,7 +99,7 @@ export function PluginStore() {
     const handleRemove = async (id: string) => {
         setActionState(prev => ({ ...prev, [id]: 'removing' }));
         try {
-            const res = await fetch(`/api/plugins/${id}`, { method: 'DELETE' });
+            const res = await fetch(apiUrl(`api/plugins/${id}`), { method: 'DELETE' });
             if (res.ok) {
                 await fetchPlugins();
             }
@@ -75,8 +116,39 @@ export function PluginStore() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="p-6">
+                <div className="animate-pulse space-y-4">
+                    <div className="h-4 bg-white/10 rounded w-1/4"></div>
+                    <div className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
+                    <div className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="p-6">
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
+                    <h3 className="text-red-400 font-bold mb-2">No se pudo cargar la tienda</h3>
+                    <p className="text-gray-400 text-sm mb-4">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                        Reintentar
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (plugins.length === 0) {
+        return (
+            <div className="p-6">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center text-gray-400">
+                    No hay integraciones disponibles.
+                </div>
             </div>
         );
     }
