@@ -31,15 +31,29 @@ export class OnvifAdapter implements CameraAdapter {
         const capabilities = emptyCapabilities('onvif');
         try {
             const onvif = await import('onvif');
-            const cam = await new Promise<any>((resolve, reject) => {
-                let instance: any;
-                instance = new (onvif as any).Cam({
-                    hostname: input.ip,
-                    port: input.onvif_port ?? input.port,
-                    username: input.username,
-                    password: input.password,
-                }, (error: Error) => error ? reject(error) : resolve(instance));
-            });
+            
+            const candidates = [...new Set([input.onvif_port ?? input.port, 80, 8080, 8899, 8000, 8001].filter(Boolean))];
+            let cam: any;
+            let lastError: any;
+
+            for (const port of candidates) {
+                try {
+                    cam = await new Promise<any>((resolve, reject) => {
+                        let instance: any;
+                        instance = new (onvif as any).Cam({
+                            hostname: input.ip,
+                            port: port,
+                            username: input.username,
+                            password: input.password,
+                        }, (error: Error) => error ? reject(error) : resolve(instance));
+                    });
+                    break; // Connected successfully
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+
+            if (!cam) throw lastError;
 
             const [profiles, information, onvifCapabilities, services] = await Promise.all([
                 call<any[]>(callback => cam.getProfiles(callback)),
@@ -151,6 +165,8 @@ export class OnvifAdapter implements CameraAdapter {
             capabilities.preview.rtsp = streamProfiles.some(profile => !!profile.streamUri);
             capabilities.preview.mjpeg = capabilities.preview.rtsp;
             capabilities.matter.supportsMatterRemux = capabilities.video.supportsH264 || capabilities.video.supportsH265;
+            capabilities.matter.available = true;
+            capabilities.matter.reason = undefined;
             return { capabilities, streamProfiles };
         } catch (error) {
             capabilities.discoveryStatus = /unauthorized|authentication|not authorized|401/i.test(error instanceof Error ? error.message : String(error)) ? 'authentication_failed' : 'error';
