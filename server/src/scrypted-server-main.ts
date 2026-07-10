@@ -819,6 +819,54 @@ async function start(mainFilename: string, options?: {
     });
 
     let wsBridge: import('./api/cameras-ws').CamerasWebSocketBridge | undefined;
+
+    // --- V4 Media Architecture Injection ---
+    const { CameraConfigRepository } = require('./media/camera-config-repository');
+    const { DatabaseConnectionSecretStore } = require('./media/credential-store');
+    const { MediaInputResolverRegistry, RtspInputResolver, HttpInputResolver, HlsInputResolver, PipeInputResolver, BufferInputResolver } = require('./media/media-resolvers');
+    const { MediaSourceSessionManager } = require('./media-session-manager');
+    const { MediaSourceSelector } = require('./media-selector');
+    const { PreviewService } = require('./media/preview-service');
+    const { CameraProbe } = require('./api/camera-probe');
+    const { CameraProviderRegistry } = require('./cameras/camera-provider-registry');
+    const { RtspAdapter } = require('./cameras/adapters/rtsp-adapter');
+    const { OnvifAdapter } = require('./cameras/adapters/onvif-adapter');
+    const { MediaProbeService } = require('./media/media-probe');
+
+    const configRepo = new CameraConfigRepository(cameraService);
+    const secretStore = new DatabaseConnectionSecretStore(cameraService);
+    
+    const providerRegistry = new CameraProviderRegistry();
+    providerRegistry.register(new RtspAdapter(configRepo));
+    providerRegistry.register(new OnvifAdapter(configRepo, secretStore));
+
+    const resolverRegistry = new MediaInputResolverRegistry();
+    resolverRegistry.register(new RtspInputResolver());
+    resolverRegistry.register(new HttpInputResolver());
+    resolverRegistry.register(new HlsInputResolver());
+    resolverRegistry.register(new PipeInputResolver());
+    resolverRegistry.register(new BufferInputResolver());
+
+    const sessionManager = new MediaSourceSessionManager(
+        (pluginId: string | undefined, deviceId: string) => {
+            // For now, always use RTSP or ONVIF (plugin architecture will wrap via adapter)
+            // Ideally we get protocol from camera config, fallback to RTSP
+            return providerRegistry.getProviderForProtocol('RTSP');
+        },
+        resolverRegistry,
+        secretStore
+    );
+
+    const selector = new MediaSourceSelector();
+    const mediaProbe = new MediaProbeService();
+    const previewService = new PreviewService(sessionManager, selector, providerRegistry);
+    const probeService = new CameraProbe(cameraService, providerRegistry, mediaProbe, resolverRegistry, secretStore);
+
+    // Make them available globally via locals for routers that need them before full refactor
+    app.locals.previewService = previewService;
+    app.locals.probeService = probeService;
+    // ---------------------------------------
+
     app.use('/api/system', createSystemRouter());
     app.use('/api/cameras', createCamerasRouter(cameraService, pgPool, () => wsBridge));
     app.use('/api/plugins', createPluginsRouter(pgPool));

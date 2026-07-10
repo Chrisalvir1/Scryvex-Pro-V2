@@ -4,22 +4,29 @@ export type { CameraProtocol };
 
 export type DiscoveryStatus = 'pending' | 'discovering' | 'online' | 'offline' | 'authentication_failed' | 'unsupported' | 'error';
 
-/** Categories for RTSP probe failures. Used in diagnostics and profile validation. */
-export type RtspErrorCategory =
+/** Unified error categories for all media probes (RTSP, HTTP, HLS, pipe, buffer). */
+export type MediaErrorCategory =
     | 'dns_error'
     | 'connection_refused'
     | 'connection_timeout'
     | 'authentication_failed'
+    | 'expired_source'
     | 'rtsp_404'
     | 'rtsp_454_session_not_found'
     | 'rtsp_461_transport_unsupported'
     | 'malformed_uri'
+    | 'malformed_source'
     | 'invalid_media'
     | 'no_video_stream'
     | 'unsupported_codec'
+    | 'unsupported_transport'
     | 'process_spawn_failed'
     | 'process_timeout'
+    | 'cancelled'
     | 'unknown';
+
+/** @deprecated Use MediaErrorCategory */
+export type RtspErrorCategory = MediaErrorCategory;
 
 /** Status of a single RTSP profile validation attempt. */
 export type ProfileValidationStatus =
@@ -168,7 +175,7 @@ export interface CameraAdapter {
  * - Replace localhost / 0.0.0.0 with the camera's real IP if provided.
  * - Log host correction without exposing secrets.
  */
-export function cameraStreamUrl(input: CameraConnectionInput, rawUrl: string): string {
+export function cameraStreamUrl(input: { ip?: string; username?: string; password?: string }, rawUrl: string): string {
     let url: URL;
     try {
         url = new URL(rawUrl);
@@ -185,28 +192,29 @@ export function cameraStreamUrl(input: CameraConnectionInput, rawUrl: string): s
 
     // Only inject credentials when the URI carries no auth at all.
     // ONVIF URIs frequently embed session tokens in the path; do not overwrite.
+    // IMPORTANT: assign directly to url.username / url.password — the URL class
+    // encodes automatically. Using encodeURIComponent first causes double-encoding
+    // which breaks FFmpeg (e.g. '%40' becomes '%2540').
     const hasAuth = url.username || url.password;
     if (!hasAuth) {
-        if (input.username) url.username = encodeURIComponent(input.username);
-        if (input.password) url.password = encodeURIComponent(input.password);
+        if (input.username) url.username = input.username;
+        if (input.password) url.password = input.password;
     }
 
-    // Node.js URL.toString() leaves % in tact if it was already encoded.
-    // Actually, Node's URL object encodes automatically when you set `url.password`,
-    // BUT we need to ensure % is handled correctly for the test.
-    // We will just return url.toString().
     return url.toString();
 }
 
 /**
  * Classify an ffprobe/ffmpeg stderr message into a structured error category.
  */
-export function classifyRtspError(stderr: string, exitCode: number | null): RtspErrorCategory {
+export function classifyMediaError(stderr: string, exitCode: number | null): MediaErrorCategory {
     const s = stderr.toLowerCase();
+    if (s === 'aborted' || s.includes('aborted')) return 'cancelled';
     if (s.includes('no route to host') || s.includes('name or service not known') || s.includes('getaddrinfo')) return 'dns_error';
     if (s.includes('connection refused')) return 'connection_refused';
     if (s.includes('timed out') || s.includes('timeout') || exitCode === null) return 'connection_timeout';
     if (s.includes('401') || s.includes('unauthorized') || s.includes('authentication')) return 'authentication_failed';
+    if (s.includes('403') || s.includes('forbidden')) return 'authentication_failed';
     if (s.includes('404') || s.includes('not found')) return 'rtsp_404';
     if (s.includes('454')) return 'rtsp_454_session_not_found';
     if (s.includes('461')) return 'rtsp_461_transport_unsupported';
@@ -217,6 +225,9 @@ export function classifyRtspError(stderr: string, exitCode: number | null): Rtsp
     if (s.includes('malformed') || s.includes('invalid url')) return 'malformed_uri';
     return 'unknown';
 }
+
+/** @deprecated Use classifyMediaError */
+export const classifyRtspError = classifyMediaError;
 
 /**
  * Normalize raw codec names from ffprobe to canonical names.

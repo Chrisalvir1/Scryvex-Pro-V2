@@ -1,5 +1,6 @@
-import { MediaSourceDescriptor, CameraMediaProvider } from './media-source';
+import { MediaSourceDescriptor, CameraMediaProvider, MediaOperationError } from './media-source';
 import { ResolvedMediaInput, MediaInputResolverRegistry } from './media-resolvers';
+import { ConnectionSecretStore } from './credential-store';
 
 export class MediaSourceSessionManager {
     private activeSessions = new Map<string, { descriptor: MediaSourceDescriptor, expiresAt: number }>();
@@ -7,27 +8,67 @@ export class MediaSourceSessionManager {
 
     constructor(
         private providerLookup: (pluginId: string | undefined, deviceId: string) => CameraMediaProvider,
-        private registry: MediaInputResolverRegistry
+        private registry: MediaInputResolverRegistry,
+        private secretStore: ConnectionSecretStore
     ) {}
 
-    async getResolvedInput(
+    /**
+     * Executes a media operation with automatic retries for 401/403 errors and expired sources.
+     * Supports only idempotent operations.
+     */
+    async executeWithSourceRetry<T>(
         deviceId: string, 
         sourceId: string, 
+        operation: (input: ResolvedMediaInput, signal?: AbortSignal) => Promise<T>,
         pluginId?: string,
         signal?: AbortSignal
-    ): Promise<ResolvedMediaInput> {
-        let descriptor = await this.getValidDescriptor(deviceId, sourceId, pluginId, signal);
+    ): Promise<T> {
+        let attempt = 0;
+        const maxAttempts = 2; // Initial attempt + 1 retry
         
-        try {
-            return await this.registry.resolve(descriptor);
-        } catch (e: any) {
-            // Attempt a single refresh if 401/403 or unresolved
-            if (e.message.includes('401') || e.message.includes('403')) {
-                descriptor = await this.forceRefresh(deviceId, sourceId, pluginId, signal);
-                return await this.registry.resolve(descriptor);
+        while (attempt < maxAttempts) {
+            attempt++;
+            
+            if (signal?.aborted) throw new MediaOperationError('Aborted by signal', 'cancelled');
+            
+            let descriptor = await this.getValidDescriptor(deviceId, sourceId, pluginId, signal);
+            let input: ResolvedMediaInput | undefined;
+            
+            try {
+                input = await this.registry.resolve(descriptor, this.secretStore, signal);
+                return await operation(input, signal);
+            } catch (e: any) {
+                // Determine if error is retryable auth/expiration error
+                const isRetryableAuthError = 
+                    e instanceof MediaOperationError && 
+                    (e.category === 'authentication_failed' || e.category === 'expired_source');
+                    
+                const isRetryableStringError = 
+                    ! (e instanceof MediaOperationError) && 
+                    (e.message?.includes('401') || e.message?.includes('403') || e.message?.includes('unauthorized'));
+
+                if ((isRetryableAuthError || isRetryableStringError) && attempt < maxAttempts) {
+                    console.log(`[SessionManager] Retryable auth error on ${deviceId}/${sourceId}. Forcing refresh (Attempt ${attempt})...`);
+                    this.invalidateSession(deviceId, sourceId);
+                    // The next loop iteration will call getValidDescriptor which will trigger a forceRefresh
+                    continue;
+                }
+                throw e;
+            } finally {
+                // Ensure cleanup is ALWAYS called exactly once per resolved input
+                if (input && typeof input.cleanup === 'function') {
+                    await input.cleanup().catch(err => {
+                        console.error(`[SessionManager] Cleanup failed for ${deviceId}/${sourceId}:`, err);
+                    });
+                }
             }
-            throw e;
         }
+        
+        throw new MediaOperationError('Max retries exceeded', 'not_retryable');
+    }
+
+    private invalidateSession(deviceId: string, sourceId: string) {
+        this.activeSessions.delete(`${deviceId}:${sourceId}`);
     }
 
     private async getValidDescriptor(
@@ -62,9 +103,9 @@ export class MediaSourceSessionManager {
             const provider = this.providerLookup(pluginId, deviceId);
             if (!provider.refreshMediaSource) {
                 // Fallback to getMediaSources
-                const sources = await provider.getMediaSources(deviceId, signal);
-                const source = sources.find(s => s.id === sourceId);
-                if (!source) throw new Error('Source not found after refresh');
+                const discovery = await provider.getMediaSources(deviceId, signal);
+                const source = discovery.sources.find(s => s.id === sourceId);
+                if (!source) throw new MediaOperationError('Source not found after refresh', 'not_retryable');
                 return source;
             }
             return await provider.refreshMediaSource(deviceId, sourceId, signal);

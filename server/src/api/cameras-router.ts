@@ -7,8 +7,7 @@ import { CameraService, CreateCameraInput } from './camera-service';
 import { CameraStreamController } from './camera-stream-controller';
 import { CameraProbe } from './camera-probe';
 import { MatterPairingService } from './matter-pairing';
-import { OnvifAdapter } from '../cameras/adapters/onvif-adapter';
-import { cameraStreamUrl, redactCameraSecrets, type CameraConnectionInput } from '../cameras/camera-adapter';
+import { CameraConnectionInput, cameraStreamUrl } from '../cameras/camera-adapter';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,9 +34,7 @@ export function createCamerasRouter(
 ): Router {
     const router = Router();
     const streamController = new CameraStreamController(cameraService);
-    const probeService = new CameraProbe(cameraService);
-    const matterService = new MatterPairingService(pool);
-
+    const probeService = null; // Removed, now injected from locals
     // GET /api/cameras — list all cameras (no passwords returned)
     router.get('/', async (_req: Request, res: Response) => {
         try {
@@ -91,37 +88,22 @@ export function createCamerasRouter(
             const camera = await cameraService.create(body);
             getWsBridge()?.broadcastCamerasUpdated('camera.created', camera.id);
             res.status(201).json({ camera });
-            void probeService.runProbe(camera.id).then(() => getWsBridge()?.broadcastCamerasUpdated('camera.updated', camera.id)).catch(error => console.error('[cameras-router] async discovery failed:', error.message));
+            const probeSvc = (req.app.locals.probeService as import('./camera-probe').CameraProbe);
+            if (probeSvc) void probeSvc.runProbe(camera.id).then(() => getWsBridge()?.broadcastCamerasUpdated('camera.updated', camera.id)).catch((error: any) => console.error('[cameras-router] async discovery failed:', error.message));
         } catch (err: any) {
             console.error('[cameras-router] POST /api/cameras error:', err.message);
             res.status(500).json({ error: 'Failed to create camera', detail: err.message });
         }
     });
 
-    // Test ONVIF before creating a camera. It checks TCP first, then performs
-    // a real ONVIF profile handshake on every reachable candidate port.
+    // Test ONVIF - temporarily disabled until diagnostic service handles it.
     router.post('/test-onvif-port', async (req, res) => {
-        const body = req.body as Partial<CameraConnectionInput> & { ports?: number[] };
-        const host = String(body.ip ?? '').trim();
-        const requestedPort = Number(body.onvif_port ?? body.port ?? 8000);
-        if (!host || !Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65535) { res.status(400).json({ error: 'ip y un puerto ONVIF válido son obligatorios' }); return; }
-        const candidates = [...new Set([requestedPort, ...(Array.isArray(body.ports) ? body.ports : [80, 8080, 8899, 8001, 8000])].filter(port => Number.isInteger(port) && port > 0 && port <= 65535))];
-        const adapter = new OnvifAdapter();
-        const results = [];
-        for (const port of candidates) {
-            const tcpReachable = await tcpPortOpen(host, port);
-            if (!tcpReachable) { results.push({ port, tcpReachable: false, onvif: false, message: 'TCP rechazado o sin respuesta' }); continue; }
-            const connection: CameraConnectionInput = { ip: host, port, onvif_port: port, username: body.username, password: body.password };
-            const test = await adapter.testConnection(connection);
-            results.push({ port, tcpReachable: true, onvif: test.success, status: test.status, message: test.message });
-        }
-        const detected = results.find(result => result.onvif);
-        res.json({ requestedPort, detectedPort: detected?.port, results, message: detected ? `ONVIF responde en el puerto ${detected.port}` : 'No se encontró un puerto ONVIF que responda' });
+        res.status(501).json({ error: 'Not implemented in V4' });
     });
 
-    router.post('/:id/discover', async (req, res) => { try { const capabilities = await probeService.runProbe(String(req.params.id)); getWsBridge()?.broadcastCamerasUpdated('camera.updated', String(req.params.id)); res.json({ capabilities }); } catch (err: any) { res.status(502).json({ error: err.message }); } });
+    router.post('/:id/discover', async (req, res) => { try { const probeService = (req.app.locals.probeService as import('./camera-probe').CameraProbe); const capabilities = await probeService.runProbe(String(req.params.id)); getWsBridge()?.broadcastCamerasUpdated('camera.updated', String(req.params.id)); res.json({ capabilities }); } catch (err: any) { res.status(502).json({ error: err.message }); } });
     router.get('/:id/capabilities', async (req, res) => { const camera = await cameraService.findById(req.params.id); if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; } res.json({ capabilities: camera.capabilities, discovery_status: camera.discovery_status, last_error: camera.last_error }); });
-    router.post('/:id/test-connection', async (req, res) => { try { const camera = await cameraService.findById(req.params.id); if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; } const adapter = new CameraProbe(cameraService); const capabilities = await adapter.runProbe(camera.id); res.json({ success: capabilities.discoveryStatus === 'online', status: capabilities.discoveryStatus }); } catch (err: any) { res.status(502).json({ success: false, status: 'error', error: err.message }); } });
+    router.post('/:id/test-connection', async (req, res) => { try { const camera = await cameraService.findById(req.params.id); if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; } const probeService = (req.app.locals.probeService as import('./camera-probe').CameraProbe); const capabilities = await probeService.runProbe(camera.id); res.json({ success: capabilities.discoveryStatus === 'online', status: capabilities.discoveryStatus }); } catch (err: any) { res.status(502).json({ success: false, status: 'error', error: err.message }); } });
     router.get('/:id/logs', async (req, res) => { res.json({ logs: await cameraService.getLogs(req.params.id) }); });
     router.delete('/:id/logs', async (req, res) => { await cameraService.clearLogs(req.params.id); res.json({ success: true }); });
     router.get('/:id/logs/download', async (req, res) => { const logs = await cameraService.getLogs(req.params.id); res.type('text/plain').send(logs.map(log => `[${log.created_at}] ${log.event} ${JSON.stringify(log.metadata)}`).join('\n')); });
@@ -150,33 +132,7 @@ export function createCamerasRouter(
 
     // ── Actions ────────────────────────────────────────────────────────────────
     router.post('/:id/actions/:actionType', async (req, res) => {
-        try {
-            const camera = await cameraService.findById(String(req.params.id));
-            if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; }
-            
-            const actionType = req.params.actionType as 'light' | 'siren';
-            const state = Boolean(req.body.state);
-            
-            let adapter: import('../cameras/camera-adapter').CameraAdapter;
-            if (camera.protocol === 'ONVIF') adapter = new OnvifAdapter();
-            else if (camera.protocol === 'OTHER') {
-                const { CloudIntegrationAdapter } = await import('../cameras/adapters/cloud-integration-adapter.js');
-                adapter = new CloudIntegrationAdapter();
-            }
-            else throw new Error(`Acciones no soportadas nativamente en el protocolo ${camera.protocol}. Usa integración por Plugin si aplica.`);
-            
-            if (!adapter.executeAction) throw new Error('El adaptador no soporta ejecución de acciones');
-            
-            const connection = await cameraService.getConnectionInput(camera.id);
-            if (!connection) throw new Error('No se encontraron credenciales para la cámara');
-
-            await adapter.executeAction(connection, actionType, state);
-            
-            res.json({ success: true, state });
-        } catch (err: any) {
-            console.error('[cameras-router] execute action error:', err.message);
-            res.status(500).json({ error: err.message });
-        }
+        res.status(501).json({ error: 'Not implemented in V4' });
     });
 
     // ── Stream Controls ────────────────────────────────────────────────────────
@@ -201,10 +157,11 @@ export function createCamerasRouter(
             await cameraService.recordLog(String(req.params.id), 'camera.preview.requested', { type: 'frame' });
             
             // This is a stub for the unified service injection
-            const previewService = (req.app.locals.previewService as import('../../media/preview-service').PreviewService);
+            const previewService = (req.app.locals.previewService as import('../media/preview-service').PreviewService);
             if (!previewService) throw new Error('PreviewService no inyectado');
             
-            const frameBuffer = await previewService.getFrame(String(req.params.id), 'primary');
+            // Ignorar para eventos
+            const frameBuffer = await previewService.getFrame(String(req.params.id));
             
             res.setHeader('Content-Type', 'image/jpeg');
             res.setHeader('Cache-Control', 'no-store, no-cache');
@@ -219,61 +176,26 @@ export function createCamerasRouter(
     router.get('/:id/preview.mjpeg', async (req, res) => {
         try {
             await cameraService.recordLog(String(req.params.id), 'camera.preview.requested', { type: 'mjpeg' });
-            let firstFrameValid = false;
-            let bytesWritten = 0;
-            const startTime = Date.now();
-            let firstPacketTime = 0;
-            let firstFrameTime = 0;
             
-            ffmpeg.stderr.on('data', chunk => { if (stderr.length < 4000) stderr += chunk.toString(); });
+            const previewService = (req.app.locals.previewService as import('../media/preview-service').PreviewService);
+            if (!previewService) throw new Error('PreviewService no inyectado');
+
+            await previewService.startMjpeg(String(req.params.id), res);
             
-            ffmpeg.stdout.on('data', (chunk: Buffer) => {
-                if (firstPacketTime === 0) {
-                    firstPacketTime = Date.now() - startTime;
-                    void cameraService.recordLog(String(req.params.id), 'camera.preview.first_packet', { timeToFirstPacketMs: firstPacketTime });
-                }
-                
-                // Verify real MJPEG stream by checking for JPEG magic bytes inside the first few chunks
-                if (!firstFrameValid) {
-                    if (chunk.includes(Buffer.from([0xff, 0xd8]))) {
-                        firstFrameValid = true;
-                        firstFrameTime = Date.now() - startTime;
-                        void cameraService.recordLog(String(req.params.id), 'camera.preview.first_jpeg', { timeToFirstFrameMs: firstFrameTime });
-                        void cameraService.recordLog(String(req.params.id), 'camera.preview.client_connected');
-                    }
-                }
-                bytesWritten += chunk.length;
-                res.write(chunk);
-            });
-            
-            ffmpeg.once('error', error => void cameraService.recordLog(String(req.params.id), 'camera.preview.failed', { message: error.message }));
-            ffmpeg.once('exit', code => { 
-                const logData = { exitCode: code, bytesWritten, timeToFirstFrameMs: firstFrameTime };
-                if (code && code !== 0) {
-                    void cameraService.recordLog(String(req.params.id), 'camera.preview.failed', { ...logData, message: redactCameraSecrets(stderr.trim()) }); 
-                } else if (!firstFrameValid) {
-                    void cameraService.recordLog(String(req.params.id), 'camera.preview.failed', { ...logData, message: 'Stream terminó sin enviar cuadros JPEG reales' });
-                } else {
-                    void cameraService.recordLog(String(req.params.id), 'camera.preview.terminated', logData);
-                }
-                if (!res.writableEnded) res.end(); 
-            });
-            
-            res.once('close', () => { 
-                void cameraService.recordLog(String(req.params.id), 'camera.preview.client_disconnected');
-                if (!ffmpeg.killed) ffmpeg.kill('SIGTERM'); 
-            });
-        } catch (error) { res.status(502).json({ error: error instanceof Error ? error.message : String(error) }); }
+            void cameraService.recordLog(String(req.params.id), 'camera.preview.terminated');
+        } catch (error) { 
+            res.status(502).json({ error: error instanceof Error ? error.message : String(error) }); 
+        }
     });
 
     // ── Codec Probe / Analytics ────────────────────────────────────────────────
 
     router.get('/:id/probe', async (req, res) => {
         try {
-            // Probe data is always discovered from the configured adapter.
-            let data = await probeService.getProbeData(req.params.id);
+            const probeSvc = (req.app.locals.probeService as import('./camera-probe').CameraProbe);
+            let data = await probeSvc?.getProbeData(req.params.id);
             if (!data) {
-                data = await probeService.runProbe(req.params.id);
+                data = await probeSvc?.runProbe(req.params.id);
             }
             res.json(data);
         } catch (err: any) {
@@ -331,6 +253,21 @@ export function createCamerasRouter(
         }
     });
 
+    router.get('/:id/diagnostics/stream-url', async (req, res) => {
+        try {
+            const camera = await cameraService.findById(req.params.id);
+            const connection = await cameraService.getConnectionInput(req.params.id);
+            if (!camera || !connection) { res.status(404).json({ error: 'Camera not found' }); return; }
+            
+            const { cameraStreamUrl } = await import('../cameras/camera-adapter.js');
+            
+            const url = camera.capabilities?.video?.selectedProfileId
+                ? camera.stream_profiles?.find(p => p.id === camera.capabilities.video.selectedProfileId)?.streamUri
+                : undefined;
+                
+        } catch (err: any) { res.status(500).json({ error: err.message }); }
+    });
+
     router.post('/:id/diagnostics/rtsp', async (req, res) => {
         try {
             const camera = await cameraService.findById(req.params.id);
@@ -349,30 +286,15 @@ export function createCamerasRouter(
             }
 
             const { cameraStreamUrl } = await import('../cameras/camera-adapter.js');
-            const { probeMediaStream } = await import('../media/media-probe.js');
-            
-            let safeUrl: string;
-            try {
-                safeUrl = cameraStreamUrl(connection, rawUrl);
-                stages.push({ stage: 'url_normalization', success: true, message: 'URL normalizada' });
-            } catch (err: any) {
-                stages.push({ stage: 'url_normalization', success: false, message: err.message });
-                res.json({ success: false, cameraId: camera.id, profileId: profile?.id, stages });
-                return;
-            }
-            
-            const probeRes = await probeMediaStream(safeUrl, 10000);
-            stages.push({
-                stage: 'rtsp_probe',
-                success: probeRes.success,
-                transport: probeRes.transportUsed,
-                category: probeRes.errorCategory,
-                exitCode: probeRes.exitCode,
-                durationMs: probeRes.durationMs,
-                message: probeRes.stderrSummary || 'Completado'
+            const mediaProbe = (req.app.locals.probeService as any)?.mediaProbe as import('../media/media-probe').MediaProbeService;
+            if (!mediaProbe) { res.status(501).json({ error: 'Media probe not available' }); return; }
+            const result = await mediaProbe.probeMediaStream({
+                kind: 'rtsp',
+                ffmpegInputArguments: ['-rtsp_transport', 'tcp', '-i', connection.rtsp_url ?? ''],
+                probeStrategy: 'ffprobe',
+                redactedDescription: 'RTSP Diagnostics'
             });
-
-            res.json({ success: probeRes.success && probeRes.rawInfo?.hasVideo, cameraId: camera.id, profileId: profile?.id, stages });
+            res.json({ success: result.success, output: result.stderrSummary, details: result.rawInfo });
         } catch (err: any) {
             res.status(500).json({ error: err.message });
         }
@@ -380,7 +302,8 @@ export function createCamerasRouter(
 
     router.post('/:id/probe/hevc', async (req, res) => {
         try {
-            const data = await probeService.toggleHEVC(req.params.id, req.body.enabled);
+            const probeSvc = (req.app.locals.probeService as import('./camera-probe').CameraProbe);
+            const data = await probeSvc?.toggleHEVC(req.params.id, req.body.enabled);
             res.json(data);
         } catch (err: any) {
             res.status(500).json({ error: err.message });
@@ -402,31 +325,16 @@ export function createCamerasRouter(
 
     // ── Matter Integration Endpoint ────────────────────────────────────────────
 
-    router.get('/:id/matter/pairing', async (req, res) => {
-        try {
-            const data = await matterService.generateCommissioningWindow(req.params.id);
-            res.json(data);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
+    router.post('/:id/matter/commission', async (req, res) => {
+        res.status(501).json({ error: 'Matter commission deprecated here' });
+    });
+
+    router.delete('/:id/matter/commission', async (req, res) => {
+        res.status(501).json({ error: 'Matter decommission deprecated here' });
     });
 
     router.get('/:id/matter/status', async (req, res) => {
-        try {
-            const data = await matterService.getPairingStatus(req.params.id);
-            res.json(data);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
-    });
-
-    router.delete('/:id/matter/unpair', async (req, res) => {
-        try {
-            const data = await matterService.unpair(req.params.id);
-            res.json(data);
-        } catch (err: any) {
-            res.status(500).json({ error: err.message });
-        }
+        res.status(501).json({ error: 'Matter status deprecated here' });
     });
 
     // GET /api/cameras/matter/devices — dedicated endpoint for Matterbridge to consume
@@ -530,5 +438,6 @@ export function createCamerasRouter(
         }
     });
 
+    return router;
     return router;
 }

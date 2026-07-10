@@ -1,6 +1,7 @@
-import { CameraMediaProvider, MediaSourceDescriptor, DeviceControlProvider } from '../../media/media-source';
+import { CameraMediaProvider, MediaSourceDescriptor, DeviceControlProvider, MediaSourceDiscoveryResult } from '../../media/media-source';
 import { CapabilityEvidence } from '../../capabilities/capability-evidence';
 import { ResolvedMediaInput, MediaInputResolver } from '../../media/media-resolvers';
+import { ConnectionSecretStore } from '../../media/credential-store';
 
 // This is a dummy interface representing the legacy Scrypted plugin model
 interface LegacyPluginHost {
@@ -10,31 +11,38 @@ interface LegacyPluginHost {
 export class LegacyPluginMediaProviderAdapter implements CameraMediaProvider, DeviceControlProvider {
     constructor(private host: LegacyPluginHost, private pluginId: string) {}
 
-    async getMediaSources(deviceId: string, signal?: AbortSignal): Promise<MediaSourceDescriptor[]> {
-        const device = this.host.getDevice(deviceId);
+    async getMediaSources(deviceId: string, signal?: AbortSignal): Promise<MediaSourceDiscoveryResult> {
+        if (signal?.aborted) return { available: false, sources: [], reason: 'cancelled', checkedAt: new Date().toISOString() };
         
-        // Infer capabilities from standard interfaces
+        const device = this.host.getDevice(deviceId);
         const sources: MediaSourceDescriptor[] = [];
         
-        if (device.getVideoStream) {
+        if (device && device.getVideoStream) {
             sources.push({
                 id: 'video',
-                sourceType: 'plugin_buffer', // Represented as a plugin internally
+                sourceType: 'plugin_buffer', // The resolver will refine this based on MediaObject
                 transport: 'buffer',
                 deviceId,
                 pluginId: this.pluginId,
-                expirationMs: Date.now() + 60000 
+                credentialRef: deviceId, 
             });
         }
         
-        return sources;
+        return {
+            available: sources.length > 0,
+            sources,
+            checkedAt: new Date().toISOString()
+        };
     }
 
     async listCapabilities(deviceId: string, signal?: AbortSignal): Promise<CapabilityEvidence[]> {
         const device = this.host.getDevice(deviceId);
+        if (!device) return [];
+
         const evidence: CapabilityEvidence[] = [];
 
-        if (device.turnOn) {
+        // Scrypted real interfaces
+        if (device.interfaces?.includes('OnOff') && device.type === 'Light') {
             evidence.push({
                 entity: 'light',
                 detected: true,
@@ -43,7 +51,19 @@ export class LegacyPluginMediaProviderAdapter implements CameraMediaProvider, De
                 controllable: true,
                 source: 'plugin',
                 confidence: 'verified',
-                operation: 'turnOn'
+                operation: 'turnOn' // The action payload mapping will handle calling device.turnOn()
+            });
+        }
+
+        if (device.interfaces?.includes('BinarySensor') || device.interfaces?.includes('MotionSensor')) {
+             evidence.push({
+                entity: 'motion',
+                detected: true,
+                verified: true,
+                readable: true,
+                controllable: false,
+                source: 'plugin',
+                confidence: 'verified'
             });
         }
 
@@ -58,18 +78,58 @@ export class PluginMediaObjectResolver implements MediaInputResolver {
         return descriptor.sourceType === 'plugin_buffer' || descriptor.sourceType === 'plugin_pipe';
     }
 
-    async resolve(descriptor: MediaSourceDescriptor): Promise<ResolvedMediaInput> {
+    async resolve(
+        descriptor: MediaSourceDescriptor,
+        secretStore: ConnectionSecretStore,
+        signal?: AbortSignal
+    ): Promise<ResolvedMediaInput> {
+        if (signal?.aborted) throw new Error('Aborted');
+        
         const device = this.host.getDevice(descriptor.deviceId);
+        if (!device || !device.getVideoStream) {
+            throw new Error(`Device ${descriptor.deviceId} does not support getVideoStream`);
+        }
         
         // This simulates requesting the actual media object from the legacy plugin
         const media = await device.getVideoStream();
+        // media might be { mimeType: 'url', data: 'http...' } or { mimeType: 'buffer', data: Buffer }
         
-        // E.g. ffmpeg -f mjpeg -i pipe:0
-        return {
-            kind: 'pipe',
-            ffmpegInputArguments: ['-f', 'mjpeg', '-i', 'pipe:0'], 
-            probeStrategy: 'buffer_magic',
-            redactedDescription: `PluginMedia[${descriptor.pluginId}]`
-        };
+        if (media.mimeType && media.mimeType.includes('rtsp')) {
+            return {
+                kind: 'rtsp',
+                ffmpegInputArguments: ['-i', media.data],
+                probeStrategy: 'ffprobe',
+                redactedDescription: `PluginMedia[${descriptor.pluginId}] RTSP`
+            };
+        }
+
+        if (Buffer.isBuffer(media.data)) {
+            return {
+                kind: 'buffer',
+                ffmpegInputArguments: ['-i', 'pipe:0'], 
+                probeStrategy: 'buffer_magic',
+                redactedDescription: `PluginMedia[${descriptor.pluginId}] Buffer`,
+                mimeType: media.mimeType,
+                inputBuffer: media.data
+            };
+        }
+        
+        if (media.data && typeof media.data.pipe === 'function') {
+            return {
+                kind: 'pipe',
+                ffmpegInputArguments: ['-i', 'pipe:0'], 
+                probeStrategy: 'buffer_magic',
+                redactedDescription: `PluginMedia[${descriptor.pluginId}] Pipe`,
+                mimeType: media.mimeType,
+                inputStream: media.data,
+                cleanup: async () => {
+                    if (typeof media.data.destroy === 'function') {
+                        media.data.destroy();
+                    }
+                }
+            };
+        }
+        
+        throw new Error(`Unsupported MediaObject mimeType/data format from plugin ${descriptor.pluginId}`);
     }
 }

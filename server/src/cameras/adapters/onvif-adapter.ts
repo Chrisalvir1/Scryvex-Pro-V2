@@ -1,5 +1,7 @@
-import { CameraMediaProvider, MediaSourceDescriptor, DeviceControlProvider } from '../../media/media-source';
+import { CameraConfigRepository } from '../../media/camera-config-repository';
+import { CameraMediaProvider, DeviceControlProvider, MediaSourceDescriptor, MediaSourceDiscoveryResult } from '../../media/media-source';
 import { CapabilityEvidence } from '../../capabilities/capability-evidence';
+import { ConnectionSecretStore } from '../../media/credential-store';
 
 function call<T>(run: (callback: (error: Error | null, value: T) => void) => void): Promise<T> {
     return new Promise((resolve, reject) => run((error, value) => error ? reject(error) : resolve(value)));
@@ -8,32 +10,49 @@ function call<T>(run: (callback: (error: Error | null, value: T) => void) => voi
 export class OnvifAdapter implements CameraMediaProvider, DeviceControlProvider {
     readonly protocol = 'ONVIF' as const;
 
-    // This would typically read from DB or config
-    private mockDatabaseResolver(deviceId: string) {
-        return {
-            ip: `192.168.1.100`, // mock
-            port: 80,
-            username: 'admin',
-            password: 'password',
-        };
+    constructor(
+        private readonly configRepo: CameraConfigRepository,
+        private readonly secretStore: ConnectionSecretStore
+    ) {}
+
+    private async connectCam(deviceId: string, signal?: AbortSignal) {
+        if (signal?.aborted) throw new Error('Aborted');
+        
+        const config = await this.configRepo.getCameraConfig(deviceId);
+        if (!config) throw new Error('camera_not_found');
+
+        const auth = await this.secretStore.resolveAuthorization(deviceId, signal);
+        
+        const onvif = await import('onvif');
+        
+        const candidates = [...new Set([config.onvif_port ?? config.port, 80, 8080, 8899, 8000, 8001].filter(Boolean))];
+        let cam: any;
+        let lastError: any;
+
+        for (const port of candidates) {
+            try {
+                cam = await new Promise<any>((resolve, reject) => {
+                    let instance: any;
+                    instance = new (onvif as any).Cam({
+                        hostname: config.ip,
+                        port: port,
+                        username: auth.username,
+                        password: auth.password,
+                    }, (error: Error) => error ? reject(error) : resolve(instance));
+                });
+                break; // Connected successfully
+            } catch (err) {
+                lastError = err;
+            }
+        }
+
+        if (!cam) throw lastError;
+        return cam;
     }
 
-    async getMediaSources(deviceId: string, signal?: AbortSignal): Promise<MediaSourceDescriptor[]> {
-        const input = this.mockDatabaseResolver(deviceId);
-        
+    async getMediaSources(deviceId: string, signal?: AbortSignal): Promise<MediaSourceDiscoveryResult> {
         try {
-            const onvif = await import('onvif');
-            
-            const cam = await new Promise<any>((resolve, reject) => {
-                let instance: any;
-                instance = new (onvif as any).Cam({
-                    hostname: input.ip,
-                    port: input.port,
-                    username: input.username,
-                    password: input.password,
-                }, (error: Error) => error ? reject(error) : resolve(instance));
-            });
-
+            const cam = await this.connectCam(deviceId, signal);
             const profiles = await call<any[]>(cb => cam.getProfiles(cb));
             
             const sources: MediaSourceDescriptor[] = [];
@@ -57,37 +76,40 @@ export class OnvifAdapter implements CameraMediaProvider, DeviceControlProvider 
                         transport: 'tcp',
                         deviceId,
                         profile: profile.Name || token,
-                        uriRef: streamUri,
-                        credentialRef: `cred_onvif_${deviceId}` // Ref to be resolved by SessionManager
+                        profileName: profile.Name,
+                        sourceLocatorRef: streamUri,
+                        credentialRef: deviceId // SessionManager resolves this
                     });
                 }
             }
 
-            return sources;
+            return {
+                available: true,
+                sources,
+                checkedAt: new Date().toISOString()
+            };
 
         } catch (error) {
-            throw new Error(`ONVIF Discovery Failed: ${(error as Error).message}`);
+            return {
+                available: false,
+                sources: [],
+                reason: (error as Error).message,
+                checkedAt: new Date().toISOString()
+            };
         }
     }
 
     async listCapabilities(deviceId: string, signal?: AbortSignal): Promise<CapabilityEvidence[]> {
-        const input = this.mockDatabaseResolver(deviceId);
         const evidence: CapabilityEvidence[] = [];
-        
         try {
-            const onvif = await import('onvif');
-            const cam = await new Promise<any>((resolve, reject) => {
-                let instance: any;
-                instance = new (onvif as any).Cam({
-                    hostname: input.ip,
-                    port: input.port,
-                    username: input.username,
-                    password: input.password,
-                }, (error: Error) => error ? reject(error) : resolve(instance));
-            });
+            const cam = await this.connectCam(deviceId, signal);
 
-            const ptz = cam.ptz || cam.capabilities?.PTZ;
-            if (ptz) {
+            const [ptzNodes, ptzConfigurations] = await Promise.all([
+                call<any>(cb => cam.getNodes(cb)).catch(() => null),
+                call<any>(cb => cam.getConfigurations(cb)).catch(() => null)
+            ]);
+
+            if ((ptzNodes && ptzNodes.length > 0) || (ptzConfigurations && ptzConfigurations.length > 0)) {
                 evidence.push({
                     entity: 'ptz',
                     detected: true,
@@ -109,6 +131,19 @@ export class OnvifAdapter implements CameraMediaProvider, DeviceControlProvider 
                     readable: true,
                     controllable: false,
                     source: 'onvif-events',
+                    confidence: 'verified',
+                });
+            }
+
+            const relays = await call<any>(cb => cam.getRelayOutputs(cb)).catch(() => null);
+            if (relays && Array.isArray(relays) && relays.length > 0) {
+                 evidence.push({
+                    entity: 'relay',
+                    detected: true,
+                    verified: true,
+                    readable: true,
+                    controllable: true,
+                    source: 'onvif-device',
                     confidence: 'verified',
                 });
             }
