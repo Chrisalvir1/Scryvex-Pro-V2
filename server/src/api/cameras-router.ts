@@ -343,7 +343,9 @@ export function createCamerasRouter(
         try {
             const camera = await cameraService.findById(String(req.params.id));
             if (!camera?.capabilities.yolo.available) { res.status(409).json({ available: false, reason: camera?.capabilities.yolo.reason ?? 'Runtime YOLO no disponible en esta arquitectura' }); return; }
-            res.status(501).json({ available: false, reason: 'El detector no está registrado' });
+            await cameraService.updateConfig(camera.id, { yolo_enabled: Boolean(req.body.enabled) });
+            getWsBridge()?.broadcastCamerasUpdated('camera.updated', camera.id);
+            res.json({ success: true, enabled: Boolean(req.body.enabled) });
         } catch (err: any) {
             res.status(500).json({ error: err.message });
         }
