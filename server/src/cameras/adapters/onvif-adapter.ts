@@ -15,7 +15,7 @@ interface ProbeStream { codec_name?: string; codec_long_name?: string; width?: n
 
 function runProbe(url: string): Promise<{ streams: ProbeStream[] }> {
     return new Promise((resolve, reject) => {
-        const child = spawn('ffprobe', ['-v', 'error', '-rtsp_transport', 'tcp', '-rw_timeout', '10000000', '-show_streams', '-show_format', '-of', 'json', url], { stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn('ffprobe', ['-v', 'error', '-rtsp_flags', 'prefer_tcp', '-rw_timeout', '20000000', '-analyzeduration', '10000000', '-probesize', '10000000', '-show_streams', '-show_format', '-of', 'json', url], { stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = ''; let stderr = '';
         child.stdout.on('data', chunk => stdout += chunk); child.stderr.on('data', chunk => stderr += chunk);
         child.once('error', reject); child.once('close', code => code === 0 ? resolve(JSON.parse(stdout) as { streams: ProbeStream[] }) : reject(new Error(stderr || `ffprobe terminó con código ${code}`)));

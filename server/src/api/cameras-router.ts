@@ -173,7 +173,7 @@ export function createCamerasRouter(
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Content-Type', `multipart/x-mixed-replace; boundary=${boundary}`);
-            const ffmpeg = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-rtsp_transport', 'tcp', '-fflags', '+discardcorrupt', '-analyzeduration', '5000000', '-probesize', '5000000', '-i', streamUrl, '-an', '-vf', 'fps=8', '-q:v', '5', '-f', 'mpjpeg', '-boundary_tag', boundary, 'pipe:1'], { stdio: ['ignore', 'pipe', 'pipe'] });
+            const ffmpeg = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-rtsp_flags', 'prefer_tcp', '-fflags', '+discardcorrupt', '-analyzeduration', '10000000', '-probesize', '10000000', '-i', streamUrl, '-an', '-vf', 'fps=8', '-q:v', '5', '-f', 'mpjpeg', '-boundary_tag', boundary, 'pipe:1'], { stdio: ['ignore', 'pipe', 'pipe'] });
             let stderr = '';
             ffmpeg.stderr.on('data', chunk => { if (stderr.length < 4000) stderr += chunk.toString(); });
             ffmpeg.stdout.once('data', () => void cameraService.recordLog(String(req.params.id), 'camera.preview.opened'));
@@ -215,7 +215,7 @@ export function createCamerasRouter(
         if (!rawUrl) { res.status(404).json({ error: 'No hay stream RTSP detectado para generar un snapshot' }); return; }
         try {
             const streamUrl = cameraStreamUrl(connection, rawUrl);
-            const { stdout } = await execFileAsync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-rtsp_transport', 'tcp', '-i', streamUrl, '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1'], { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024, timeout: 12_000 });
+            const { stdout } = await execFileAsync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-rtsp_flags', 'prefer_tcp', '-analyzeduration', '10000000', '-probesize', '10000000', '-i', streamUrl, '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'mjpeg', 'pipe:1'], { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024, timeout: 12_000 });
             await cameraService.recordLog(camera.id, 'camera.snapshot.opened');
             res.type('image/jpeg').send(stdout);
         } catch (error) { await cameraService.recordLog(camera.id, 'camera.snapshot.failed', { error: error instanceof Error ? error.message : String(error) }); res.status(502).json({ error: 'No se pudo abrir el stream RTSP para generar el snapshot' }); }
