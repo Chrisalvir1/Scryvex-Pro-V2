@@ -44,6 +44,9 @@ export class CameraService {
     }
     async updateStatus(id: string, status: CameraStatus) { await this.pool.query(`UPDATE scryvex_core.cameras SET status = $1, updated_at = NOW() WHERE id = $2`, [status, id]); }
     async updateDiscovery(id: string, status: DiscoveryStatus, capabilities?: CameraCapabilities, profiles?: StreamProfile[], error?: string) { await this.pool.query(`UPDATE scryvex_core.cameras SET discovery_status=$1, capabilities=COALESCE($2, capabilities), stream_profiles=COALESCE($3, stream_profiles), last_probe_at=NOW(), last_error=$4, status=CASE WHEN $1='online' THEN 'online' WHEN $1 IN ('offline','error','authentication_failed') THEN 'offline' ELSE status END, updated_at=NOW() WHERE id=$5`, [status, capabilities ? JSON.stringify(capabilities) : null, profiles ? JSON.stringify(profiles) : null, error ?? null, id]); }
+    async updateConfig(id: string, partialConfig: Record<string, unknown>) {
+        await this.pool.query(`UPDATE scryvex_core.cameras SET config = config || $1::jsonb, updated_at = NOW() WHERE id = $2`, [JSON.stringify(partialConfig), id]);
+    }
     async delete(id: string) { return ((await this.pool.query(`DELETE FROM scryvex_core.cameras WHERE id = $1`, [id])).rowCount ?? 0) > 0; }
     async recordEvent(camera_id: string, event_type: CameraEvent['event_type'], metadata: Record<string, unknown> = {}) { const result = await this.pool.query<CameraEvent>(`INSERT INTO scryvex_core.camera_events (camera_id,event_type,metadata) VALUES ($1,$2,$3) RETURNING *`, [camera_id, event_type, JSON.stringify(metadata)]); if (event_type === 'online' || event_type === 'offline') await this.updateStatus(camera_id, event_type); return result.rows[0]!; }
     async getRecentEvents(camera_id: string, limit = 50) { return (await this.pool.query<CameraEvent>(`SELECT * FROM scryvex_core.camera_events WHERE camera_id=$1 ORDER BY timestamp DESC LIMIT $2`, [camera_id, limit])).rows; }

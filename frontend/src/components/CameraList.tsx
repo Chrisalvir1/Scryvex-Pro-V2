@@ -121,6 +121,10 @@ export function CameraList({ cameras, onDelete, onRefresh }: Props) {
 
     const handleToggleHEVC = async () => {
         if (!selectedId || !probeData) return;
+        if (!capabilities?.video.supportsH265) {
+            alert('Para activar Remuxing HEVC puro, cambia el formato de video a H.265 en la aplicación oficial de tu cámara y luego presiona "Descubrir" aquí de nuevo para que Scryvex lo detecte.');
+            return;
+        }
         const newEnabled = !probeData.hevc_enabled;
         setProbeData({ ...probeData, hevc_enabled: newEnabled });
         await fetch(apiUrl(`api/cameras/${selectedId}/probe/hevc`), {
@@ -214,7 +218,7 @@ export function CameraList({ cameras, onDelete, onRefresh }: Props) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled: !currentEnabled })
             });
-            // Let the websocket push the updated camera to refresh UI
+            await onRefresh();
         } catch (err) {
             console.error('Failed to toggle YOLO', err);
         }
@@ -534,13 +538,12 @@ export function CameraList({ cameras, onDelete, onRefresh }: Props) {
                                             </div>
                                             <div className="flex items-center justify-between pt-2 border-t border-white/5">
                                                 <div>
-                                                <p className="text-sm text-gray-300 font-semibold">Perfil H.265 seleccionado</p>
-                                                <p className="text-xs text-gray-500">Solo se habilita cuando el adaptador detecta H.265.</p>
+                                                <p className="text-sm text-gray-300 font-semibold">Remuxing H.265 (Apple tvOS 27)</p>
+                                                <p className="text-xs text-gray-500">Requiere que la cámara esté enviando H.265 puro.</p>
                                                 </div>
                                                 <button
                                                     onClick={handleToggleHEVC}
-                                                    disabled={!capabilities?.video.supportsH265}
-                                                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-600 disabled:opacity-40"
+                                                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-600 hover:bg-gray-500"
                                                 >
                                                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${probeData?.hevc_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                                                 </button>
@@ -646,59 +649,96 @@ export function CameraList({ cameras, onDelete, onRefresh }: Props) {
                     {/* Sensors tab */}
                     {activeTab === 'sensors' && (
                         <div className="flex flex-col gap-4 p-4 border border-white/5 bg-black/40 rounded-xl mt-4">
+                            
+                            {/* NATIVE SENSORS */}
                             <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-500/20 rounded-lg border border-blue-500/30">
+                                    <span className="text-xl">📡</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Sensores Nativos de la Cámara</h3>
+                                    <p className="text-xs text-gray-400">
+                                        Detectados vía ONVIF. Si estos sensores se iluminan, significa que están enviando datos en tiempo real.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center transition-colors ${capabilities?.controls.motionEvents ? 'hover:bg-blue-500/10 hover:border-blue-500/30' : 'opacity-50 grayscale'}`}>
+                                    <span className="text-2xl mb-1">🏃‍♂️</span>
+                                    <span className="text-xs font-bold text-white">Movimiento</span>
+                                    <span className="text-[9px] text-gray-500 text-center mt-1">{capabilities?.controls.motionEvents ? 'Sensor Activo' : 'No soportado'}</span>
+                                </div>
+                                <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center transition-colors ${capabilities?.audio.input ? 'hover:bg-emerald-500/10 hover:border-emerald-500/30' : 'opacity-50 grayscale'}`}>
+                                    <span className="text-2xl mb-1">🎤</span>
+                                    <span className="text-xs font-bold text-white">Audio/Ruido</span>
+                                    <span className="text-[9px] text-gray-500 text-center mt-1">{capabilities?.audio.input ? 'Micrófono Activo' : 'No soportado'}</span>
+                                </div>
+                                <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center transition-colors ${capabilities?.controls.siren ? 'hover:bg-red-500/10 hover:border-red-500/30' : 'opacity-50 grayscale'}`}>
+                                    <span className="text-2xl mb-1">🚨</span>
+                                    <span className="text-xs font-bold text-white">Sirena</span>
+                                    <span className="text-[9px] text-gray-500 text-center mt-1">{capabilities?.controls.siren ? 'Alarma Detectada' : 'No soportada'}</span>
+                                </div>
+                                <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center transition-colors ${capabilities?.controls.light ? 'hover:bg-yellow-500/10 hover:border-yellow-500/30' : 'opacity-50 grayscale'}`}>
+                                    <span className="text-2xl mb-1">💡</span>
+                                    <span className="text-xs font-bold text-white">Luz</span>
+                                    <span className="text-[9px] text-gray-500 text-center mt-1">{capabilities?.controls.light ? 'Iluminador Activo' : 'No soportada'}</span>
+                                </div>
+                            </div>
+
+                            {/* YOLO AI */}
+                            <div className="flex items-center gap-3 mb-2 border-t border-white/5 pt-6">
                                 <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
                                     <span className="text-xl">🧠</span>
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-white">Procesamiento IA Local</h3>
+                                    <h3 className="text-lg font-bold text-white">Procesamiento IA Local (YOLOv10)</h3>
                                     <p className="text-xs text-gray-400">
-                                        El detector solo puede habilitarse cuando existe un runtime y modelo compatibles en ejecución.
+                                        Úsalo solo si tu cámara no tiene sensores nativos inteligentes. Aceleración por hardware incluida.
                                     </p>
                                 </div>
                             </div>
                             
                             <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
                                 <div className="flex-1">
-                                    <h3 className="text-white font-bold text-sm">Habilitar YOLOv10</h3>
+                                    <h3 className="text-white font-bold text-sm">Habilitar Detección YOLOv10</h3>
                                     <p className="text-gray-500 text-xs mt-1">
-                                        {capabilities?.yolo.available ? 'Disponible para esta cámara.' : capabilities?.yolo.reason ?? 'Detector no disponible.'}
+                                        {capabilities?.yolo.available ? 'El modelo ONNX está listo para procesar este stream.' : (capabilities?.yolo.reason ?? 'Cámara sin preview RTSP.')}
                                     </p>
                                 </div>
                                 <button
                                     onClick={handleToggleYolo}
-                                    disabled={!capabilities?.yolo.available}
-                                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-gray-600 disabled:opacity-40"
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!capabilities?.yolo.available ? 'bg-gray-700/50' : 'bg-gray-600 hover:bg-gray-500'}`}
                                 >
-                                    <span className="inline-block h-4 w-4 transform rounded-full bg-white translate-x-1" />
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true) ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
                             
-                            {capabilities?.yolo.available && <div className="mt-4">
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Sensores Expuestos (Vía Matterbridge)</h4>
+                            <div className="mt-4">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Capacidades de IA Generadas</h4>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                    <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center ${(selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true) ? '' : 'opacity-50 grayscale'}`}>
                                         <span className="text-2xl mb-1">🏃‍♂️</span>
                                         <span className="text-xs font-bold text-emerald-400">Persona</span>
-                                        <span className="text-[9px] text-gray-500 text-center mt-1">Activado por YOLO o Cámara</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Generado por YOLO</span>
                                     </div>
-                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                    <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center ${(selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true) ? '' : 'opacity-50 grayscale'}`}>
                                         <span className="text-2xl mb-1">🚗</span>
                                         <span className="text-xs font-bold text-emerald-400">Vehículo</span>
-                                        <span className="text-[9px] text-gray-500 text-center mt-1">Requiere YOLOv10</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Generado por YOLO</span>
                                     </div>
-                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                    <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center ${(selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true) ? '' : 'opacity-50 grayscale'}`}>
                                         <span className="text-2xl mb-1">🐶</span>
                                         <span className="text-xs font-bold text-emerald-400">Mascota</span>
-                                        <span className="text-[9px] text-gray-500 text-center mt-1">Requiere YOLOv10</span>
+                                        <span className="text-[9px] text-gray-500 text-center mt-1">Generado por YOLO</span>
                                     </div>
-                                    <div className="bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center">
+                                    <div className={`bg-white/[0.03] border border-white/5 rounded-lg p-3 flex flex-col items-center ${(selected?.config?.yolo_enabled === 'true' || selected?.config?.yolo_enabled === true) ? '' : 'opacity-50 grayscale'}`}>
                                         <span className="text-2xl mb-1">📦</span>
                                         <span className="text-xs font-bold text-emerald-400">Paquete</span>
                                         <span className="text-[9px] text-gray-500 text-center mt-1">Soporte HKSV Exclusivo</span>
                                     </div>
                                 </div>
-                            </div>}
+                            </div>
                         </div>
                     )}
                 </div>
