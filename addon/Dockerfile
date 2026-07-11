@@ -66,9 +66,24 @@ COPY rootfs /
 
 # 10. Validar versiones requeridas (Fase 0 - Matter Base)
 RUN echo "=== Validating required versions ===" \
-    && node --version | grep -q "v24" || { echo "Error: Node.js 24 is required"; exit 1; } \
-    && /usr/src/app/node_modules/.bin/matterbridge --version | grep -q "3.9.4" || { echo "Error: Matterbridge 3.9.4 is required"; exit 1; } \
-    && echo "Node and Matterbridge versions OK"
+    && test -f /usr/src/app/server/node_modules/matterbridge/package.json
+RUN set -eux; \
+    NODE_VERSION="$(node --version)"; \
+    MATTERBRIDGE_VERSION="$(node -e "\
+        const fs = require('fs'); \
+        const pkg = JSON.parse( \
+            fs.readFileSync('/usr/src/app/server/node_modules/matterbridge/package.json', 'utf8') \
+        ); \
+        process.stdout.write(pkg.version); \
+    ")"; \
+    echo "Node.js version: ${NODE_VERSION}"; \
+    echo "Matterbridge version: ${MATTERBRIDGE_VERSION}"; \
+    case "${NODE_VERSION}" in \
+        v24.*) ;; \
+        *) echo "Error: Node.js 24 is required"; exit 1 ;; \
+    esac; \
+    test "${MATTERBRIDGE_VERSION}" = "3.9.4"; \
+    echo "Node and Matterbridge versions OK"
 
 # 11. Arranque con s6-overlay
 CMD [ "/init" ]
