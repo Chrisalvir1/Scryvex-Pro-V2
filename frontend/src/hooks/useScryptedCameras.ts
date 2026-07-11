@@ -18,7 +18,7 @@ interface UseCamerasReturn {
 const WS_RECONNECT_DELAY   = 3000;
 const WS_MAX_DELAY         = 30000;
 const WS_MAX_ATTEMPTS      = 5;   // give up WebSocket after 5 failures
-const API_BASE             = '/api/cameras';
+const API_BASE             = '/api/scrypted/devices';
 
 export function useScryptedCameras(): UseCamerasReturn {
     const [cameras, setCameras]               = useState<Camera[]>([]);
@@ -43,9 +43,9 @@ export function useScryptedCameras(): UseCamerasReturn {
             const res = await fetch(url, { signal: controller.signal, credentials: 'same-origin' });
             clearTimeout(timeoutId);
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            const data = await res.json() as { cameras: Camera[] };
+            const data = await res.json() as { devices: Camera[] };
             if (isMounted.current) {
-                setCameras(data.cameras);
+                setCameras(data.devices);
                 setError(null);
             }
         } catch (err: unknown) {

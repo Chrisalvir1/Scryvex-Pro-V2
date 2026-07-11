@@ -16,14 +16,14 @@ export interface CameraCapabilities {
 export interface Camera {
     id: string;
     name: string;
-    ip: string;
-    port: number;
-    rtsp_url?: string;
-    onvif_port?: number;
-    username?: string;
-    protocol: CameraProtocol;
-    status: CameraStatus;
-    codec?: string;
+    plugin: string;
+    manufacturer?: string;
+    model?: string;
+    interfaces: string[];
+    capabilities: string[];
+    diagnostics?: { status: 'online' | 'offline' | 'unknown' | 'healthy' | 'warning' | 'critical' };
+    ip?: string; // fallback
+    port?: number; // fallback
     config: Record<string, unknown>;
     
     // HKSV Specifics
@@ -57,15 +57,16 @@ export interface CameraEvent {
 }
 
 export interface CreateCameraInput {
+    id: string;
     name: string;
-    ip: string;
-    port: number;
-    rtsp_url?: string;
-    onvif_port?: number;
-    username?: string;
-    password?: string;
-    protocol: CameraProtocol;
-    codec?: string;
+    plugin: string; // was protocol
+    manufacturer?: string;
+    model?: string;
+    interfaces: string[];
+    capabilities: string[];
+    diagnostics?: { status: 'online' | 'offline' | 'unknown' | 'healthy' | 'warning' | 'critical' };
+    ip?: string; // fallback
+    port?: number; // fallback
     config?: Record<string, unknown>;
     
     // HKSV Specifics

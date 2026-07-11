@@ -394,8 +394,8 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                             <span className="text-sm font-semibold text-white truncate flex-1">{cam.name}</span>
                         </div>
                         <span className="text-[10px] text-gray-500 font-mono">{cam.ip}</span>
-                        <span className={`mt-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full ${STATUS_COLORS[cam.status]}`}>
-                            {STATUS_LABELS[cam.status]}
+                        <span className={`mt-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded-full ${STATUS_COLORS[cam.diagnostics?.status as any] || STATUS_COLORS.unknown}`}>
+                            {STATUS_LABELS[cam.diagnostics?.status as any] || 'ONLINE'}
                         </span>
                     </button>
                 ))}
@@ -414,12 +414,12 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                                     <span>📷</span>
                                 )}
                                 {selected.name}
-                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${STATUS_COLORS[selected.status]}`}>
-                                    {STATUS_LABELS[selected.status]}
+                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${STATUS_COLORS[selected.diagnostics?.status as any] || STATUS_COLORS.unknown}`}>
+                                    {STATUS_LABELS[selected.diagnostics?.status as any] || 'ONLINE'}
                                 </span>
                             </h2>
                             <p className="text-xs text-gray-500 font-mono mt-1">
-                                {selected.protocol} · {selected.ip}:{selected.port}
+                                {selected.plugin} {selected.ip ? `· ${selected.ip}:${selected.port}` : ''}
                                 {selected.codec && ` · ${selected.codec}`}
                             </p>
                         </div>

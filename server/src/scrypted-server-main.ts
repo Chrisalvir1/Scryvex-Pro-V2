@@ -36,6 +36,7 @@ import { CamerasWebSocketBridge } from './api/cameras-ws';
 import { SystemService } from './api/system-service';
 import { SystemDiagnosticsService } from './media/system-diagnostics';
 import { createSystemRouter } from './api/system-router';
+import { createScryptedRouter } from './api/scrypted/scrypted-router';
 import { Pool } from 'pg';
 // V4 Media Architecture — static imports (B1)
 import { CameraConfigRepository } from './media/camera-config-repository';
@@ -911,6 +912,7 @@ async function start(mainFilename: string, options?: {
         ffmpegRunner: (previewService as any).runner,
         liveSessionManager,
     }));
+    app.use('/api/scrypted', createScryptedRouter(pgPool, scrypted));
     app.use('/api/plugins', createPluginsRouter(pgPool));
 
     // Scryvex Pro Custom Frontend integration

@@ -66,6 +66,8 @@ COPY rootfs /
 
 RUN set -eux; \
     test -x /usr/local/bin/scryvex-postgres-setup; \
+    test -x /etc/s6-overlay/s6-rc.d/postgres-setup/up; \
+    head -n 1 /etc/s6-overlay/s6-rc.d/postgres-setup/up | grep -qx '#!/command/execlineb -P'; \
     grep -qx '/usr/local/bin/scryvex-postgres-setup' \
         /etc/s6-overlay/s6-rc.d/postgres-setup/up; \
     ! grep -q '^until ' \

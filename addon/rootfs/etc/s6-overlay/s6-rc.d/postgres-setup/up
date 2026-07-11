@@ -1,1 +1,2 @@
+#!/command/execlineb -P
 /usr/local/bin/scryvex-postgres-setup
