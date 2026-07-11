@@ -100,7 +100,6 @@ export class RtspInputResolver implements MediaInputResolver {
             kind: 'rtsp',
             ffmpegInputArguments: [
                 '-rtsp_transport', transport,
-                '-rw_timeout', '10000000',
                 '-i', resolvedUrl,
             ],
             probeStrategy: 'ffprobe',

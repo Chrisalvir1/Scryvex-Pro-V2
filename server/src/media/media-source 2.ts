@@ -70,7 +70,6 @@ export type MediaErrorCategory =
     | 'connection_timeout'
     | 'authentication_failed'
     | 'expired_source'
-    | 'invalid_arguments'
     | 'rtsp_404'
     | 'rtsp_454_session_not_found'
     | 'rtsp_461_transport_unsupported'

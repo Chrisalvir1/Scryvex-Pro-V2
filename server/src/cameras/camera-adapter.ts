@@ -194,6 +194,9 @@ export function cameraStreamUrl(input: { ip?: string; username?: string; passwor
 export function classifyMediaError(stderr: string, exitCode: number | null): MediaErrorCategory {
     const s = stderr.toLowerCase();
     if (s === 'aborted' || s.includes('aborted')) return 'cancelled';
+    if (s.includes('option') && s.includes('not found')) return 'invalid_arguments';
+    if (s.includes('unrecognized option')) return 'invalid_arguments';
+    if (s.includes('error parsing options')) return 'invalid_arguments';
     if (s.includes('no route to host') || s.includes('name or service not known') || s.includes('getaddrinfo')) return 'dns_error';
     if (s.includes('connection refused')) return 'connection_refused';
     if (s.includes('timed out') || s.includes('timeout') || exitCode === null) return 'connection_timeout';

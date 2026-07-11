@@ -64,6 +64,8 @@ test('Clasificación de Errores RTSP (ffprobe/ffmpeg)', () => {
     assert.strictEqual(classifyRtspError('404 Not Found', 1), 'rtsp_404');
     assert.strictEqual(classifyRtspError('Invalid data found', 1), 'invalid_media');
     assert.strictEqual(classifyRtspError('No streams found', 1), 'no_video_stream');
+    assert.strictEqual(classifyRtspError('Option rw_timeout not found.', 1), 'invalid_arguments');
+    assert.strictEqual(classifyRtspError('Unrecognized option', 1), 'invalid_arguments');
 });
 
 test('Normalización de Codecs (Fase 2 de Requisitos)', () => {

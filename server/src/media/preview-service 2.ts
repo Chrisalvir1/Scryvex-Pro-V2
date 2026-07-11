@@ -73,13 +73,9 @@ export class PreviewService {
             const args = [
                 '-hide_banner', '-loglevel', 'error',
                 ...input.ffmpegInputArguments,
-                '-map', '0:v:0',
-                '-an',
                 '-frames:v', '1',
-                '-vf', 'scale=1280:-2',
-                '-c:v', 'mjpeg',
-                '-q:v', '5',
                 '-f', 'image2',
+                '-vcodec', 'mjpeg',
                 'pipe:1',
             ];
 
@@ -108,60 +104,10 @@ export class PreviewService {
         }, pluginId, signal);
     }
 
-    async getDiagnosticsFrame(
-        deviceId: string,
-        cameraProbe: import('../api/camera-probe').CameraProbe,
-        signal?: AbortSignal
-    ): Promise<any> {
-        const source = await this.resolveProfile(deviceId, cameraProbe, signal);
-        const { id: sourceId, pluginId } = source.descriptor;
-
-        return this.sessionManager.executeWithSourceRetry(deviceId, sourceId, async (input, sig) => {
-            const args = [
-                '-hide_banner', '-loglevel', 'error',
-                ...input.ffmpegInputArguments,
-                '-map', '0:v:0',
-                '-an',
-                '-frames:v', '1',
-                '-vf', 'scale=1280:-2',
-                '-c:v', 'mjpeg',
-                '-q:v', '5',
-                '-f', 'image2',
-                'pipe:1',
-            ];
-
-            const result = await this.runner.run({
-                command: 'ffmpeg',
-                args,
-                signal: sig,
-                timeoutMs: 15_000,
-                inputStream: input.inputStream,
-                inputBuffer: input.inputBuffer,
-            });
-
-            const buf = result.stdout;
-            const jpegSoiValid = buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8;
-            const jpegEoiValid = buf.length > 2 && buf[buf.length - 2] === 0xff && buf[buf.length - 1] === 0xd9;
-
-            return {
-                profileId: source.profile.id,
-                codec: source.profile.codec,
-                resolution: source.profile.width && source.profile.height ? `${source.profile.width}x${source.profile.height}` : undefined,
-                exitCode: result.exitCode,
-                stderr: result.stderr.slice(0, 512),
-                stdoutBytes: result.stdoutBytes,
-                jpegSoiValid,
-                jpegEoiValid,
-                durationMs: result.durationMs,
-            };
-        }, pluginId, signal);
-    }
-
     async startMjpeg(
         deviceId: string,
         res: import('express').Response,
         cameraProbe: import('../api/camera-probe').CameraProbe,
-        cameraService: import('../api/camera-service').CameraService,
         signal?: AbortSignal
     ): Promise<void> {
         const source = await this.resolveProfile(deviceId, cameraProbe, signal);
@@ -174,20 +120,15 @@ export class PreviewService {
                 res.writeHead(200, {
                     'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
                     'Cache-Control': 'no-store, no-cache',
+                    'Connection': 'close',
                     'Pragma': 'no-cache',
                 });
-
-                void cameraService.recordLog(deviceId, 'camera.preview.started', { sourceId, pluginId });
 
                 const args = [
                     '-hide_banner', '-loglevel', 'error',
                     ...input.ffmpegInputArguments,
-                    '-map', '0:v:0',
-                    '-an',
-                    '-vf', 'fps=5,scale=1280:-2',
-                    '-c:v', 'mjpeg',
-                    '-q:v', '5',
                     '-f', 'mpjpeg',
+                    '-vcodec', 'mjpeg',
                     '-boundary_tag', boundary,
                     'pipe:1',
                 ];
@@ -203,18 +144,7 @@ export class PreviewService {
 
                 this.activeSessions.set(correlationId, ff);
 
-                let watchdog: NodeJS.Timeout | null = null;
-                const resetWatchdog = () => {
-                    if (watchdog) clearTimeout(watchdog);
-                    watchdog = setTimeout(() => {
-                        console.error(`[PreviewService] Watchdog timeout en stream [${correlationId}]`);
-                        if (!ff.killed) ff.kill('SIGTERM');
-                    }, 15000);
-                };
-                resetWatchdog();
-
                 const cleanup = () => {
-                    if (watchdog) clearTimeout(watchdog);
                     if (!ff.killed) ff.kill('SIGTERM');
                     this.activeSessions.delete(correlationId);
                 };
@@ -222,49 +152,15 @@ export class PreviewService {
                 res.on('close', cleanup);
                 sig?.addEventListener('abort', cleanup, { once: true });
 
-                promise.then(async (result) => {
+                promise.then(() => {
                     cleanup();
                     if (!res.writableEnded) res.end();
-
-                    if (result.exitCode !== 0 && result.exitCode !== null) {
-                        const category = classifyMediaError(result.stderr, result.exitCode);
-                        void cameraService.recordLog(deviceId, 'camera.preview.failed', {
-                            exitCode: result.exitCode, category, stderr: result.stderr.slice(0, 256), stdoutBytes: result.stdoutBytes, durationMs: result.durationMs, sourceId, profileId: source.profile.id, codec: source.profile.codec
-                        });
-                        return reject(new MediaOperationError(result.stderr || `FFmpeg terminó con código ${result.exitCode}`, category));
-                    }
-
-                    if (result.stdoutBytes === 0) {
-                        void cameraService.recordLog(deviceId, 'camera.preview.failed', {
-                            exitCode: result.exitCode, category: 'invalid_media', stderr: result.stderr.slice(0, 256), stdoutBytes: result.stdoutBytes, durationMs: result.durationMs, sourceId, profileId: source.profile.id, codec: source.profile.codec
-                        });
-                        return reject(new MediaOperationError('FFmpeg terminó sin producir datos MJPEG', 'invalid_media'));
-                    }
-
-                    void cameraService.recordLog(deviceId, 'camera.preview.terminated', { durationMs: result.durationMs, stdoutBytes: result.stdoutBytes });
                     resolve();
                 }).catch(err => {
                     console.error(`[PreviewService] MJPEG error [${correlationId}]:`, err);
                     cleanup();
                     reject(err);
                 });
-
-                // First frame detection hook via child stdout if possible
-                // We rely on runner's Promise to resolve, but we could also poll res headersSent or rely on runner to emit first frame, 
-                // Since we can't easily hook to outputStream first write here, let's just log when promise starts writing.
-                // Wait, firstOutputAtMs is available in result. 
-                // Actually the user asks to log camera.preview.first_frame.
-                // We can't log it inline unless we do a small hack:
-                const origWrite = res.write;
-                let firstFrameLogged = false;
-                res.write = function(...a: any) {
-                    resetWatchdog();
-                    if (!firstFrameLogged) {
-                        firstFrameLogged = true;
-                        void cameraService.recordLog(deviceId, 'camera.preview.first_frame', { sourceId, profileId: source.profile.id });
-                    }
-                    return origWrite.apply(res, a as any);
-                };
             });
         }, pluginId, signal);
     }

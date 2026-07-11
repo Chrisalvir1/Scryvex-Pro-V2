@@ -39,7 +39,6 @@ export class MediaProbeService {
 
         const args = [
             '-v', 'error',
-            '-rw_timeout', (timeoutMs * 1000).toString(),
             '-analyzeduration', '5000000',
             '-probesize', '5000000',
             '-show_streams',
