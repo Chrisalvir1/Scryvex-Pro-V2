@@ -14,6 +14,13 @@ export function createSystemRouter(): Router {
         next();
     });
 
+    router.get('/ui-config', (req, res) => {
+        const legacyUi = process.env.SCRYVEX_LEGACY_CAMERA_UI === 'true';
+        res.json({
+            cameraUi: legacyUi ? 'legacy' : 'universal'
+        });
+    });
+
     router.get('/media-capabilities', (req, res) => {
         const response = diagnosticsService.getResponse();
         res.json(response);

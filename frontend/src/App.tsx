@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useScryptedCameras } from './hooks/useScryptedCameras';
-import { CameraList } from './components/CameraList';
+import { useUniversalDevices } from './hooks/useUniversalDevices';
+import { LegacyCameraPanel } from './components/LegacyCameraPanel';
+import { UniversalDeviceList } from './components/universal/UniversalDeviceList';
 import { AddCameraModal } from './components/AddCameraModal';
-import { PluginStore } from './components/PluginStore';
 import { useMediaCapabilities } from './hooks/useMediaCapabilities';
 import type { CreateCameraInput } from './types/camera';
 
@@ -29,6 +30,16 @@ export default function App() {
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [currentView, setCurrentView] = useState<'cameras' | 'plugins'>('cameras');
+    const [uiMode, setUiMode] = useState<'universal' | 'legacy' | 'loading'>('loading');
+
+    useEffect(() => {
+        fetch(apiUrl('/api/system/ui-config'))
+            .then(res => res.json())
+            .then(data => setUiMode(data.cameraUi || 'universal'))
+            .catch(() => setUiMode('universal')); // Default to universal on error
+    }, []);
+
+    const universal = useUniversalDevices();
 
     const handleAddCamera = async (input: CreateCameraInput) => {
         await addCamera(input);
@@ -82,15 +93,15 @@ export default function App() {
                         </span>
 
                         <span className="text-xs text-gray-600 font-mono">
-                            {cameras.length} cámara{cameras.length !== 1 ? 's' : ''}
+                            {uiMode === 'legacy' ? cameras.length : universal.devices.length} dispositivo{ (uiMode === 'legacy' ? cameras.length : universal.devices.length) !== 1 ? 's' : ''}
                         </span>
 
                         <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 mx-4">
                             <button
                                 onClick={() => setCurrentView('cameras')}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${currentView === 'cameras' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'cameras' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
                             >
-                                Cámaras
+                                Dispositivos {uiMode === 'legacy' && <span className="bg-orange-500/20 text-orange-400 px-1 py-0.5 rounded text-[8px]">LEGACY</span>}
                             </button>
                             <button
                                 onClick={() => setCurrentView('plugins')}
@@ -115,20 +126,20 @@ export default function App() {
             <main className="max-w-7xl mx-auto px-6 py-8">
 
                 {/* Loading state */}
-                {loading && (
+                {(loading || universal.loading || uiMode === 'loading') && (
                     <div className="flex flex-col items-center justify-center py-24 gap-4">
                         <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                        <p className="text-sm text-gray-500">Cargando cámaras desde el servidor…</p>
+                        <p className="text-sm text-gray-500">Iniciando Scryvex Pro...</p>
                     </div>
                 )}
 
                 {/* Error state — server unreachable, but only block UI if we already have cameras to show, otherwise fallback to empty state */}
-                {!loading && error && cameras.length > 0 && (
+                {!(loading || universal.loading || uiMode === 'loading') && (error || universal.error) && (cameras.length > 0 || universal.devices.length > 0) && (
                     <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
                         <span className="text-4xl">⚠️</span>
                         <div>
                             <h2 className="text-lg font-semibold text-red-400 mb-1">Error de conexión con el servidor</h2>
-                            <p className="text-sm text-gray-500 max-w-sm">{error}</p>
+                            <p className="text-sm text-gray-500 max-w-sm">{error || universal.error}</p>
                         </div>
                         <p className="text-xs text-gray-700">
                             El servidor Scryvex Pro puede estar iniciando. La interfaz se reconectará automáticamente.
@@ -137,12 +148,21 @@ export default function App() {
                 )}
 
                 {/* Normal state — camera list or empty state */}
-                {!loading && (!error || cameras.length === 0) && currentView === 'cameras' && (
-                    <CameraList
+                {!(loading || universal.loading || uiMode === 'loading') && currentView === 'cameras' && uiMode === 'legacy' && (
+                    <LegacyCameraPanel
                         cameras={cameras}
                         capabilities={capabilities}
                         onDelete={deleteCamera}
                         onRefresh={refetch}
+                    />
+                )}
+
+                {!(loading || universal.loading || uiMode === 'loading') && currentView === 'cameras' && uiMode === 'universal' && (
+                    <UniversalDeviceList
+                        devices={universal.devices}
+                        loading={universal.loading}
+                        error={universal.error}
+                        onRefresh={universal.refetch}
                     />
                 )}
 

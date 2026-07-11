@@ -37,6 +37,10 @@ import { SystemService } from './api/system-service';
 import { SystemDiagnosticsService } from './media/system-diagnostics';
 import { createSystemRouter } from './api/system-router';
 import { createScryptedRouter } from './api/scrypted/scrypted-router';
+import { PluginRepository } from './core/PluginRepository';
+import { DeviceModelFactory } from './core/DeviceModelFactory';
+import { DeviceRepository } from './core/DeviceRepository';
+import { CoreServiceFacade } from './core/CoreServiceFacade';
 import { Pool } from 'pg';
 // V4 Media Architecture — static imports (B1)
 import { CameraConfigRepository } from './media/camera-config-repository';
@@ -912,7 +916,13 @@ async function start(mainFilename: string, options?: {
         ffmpegRunner: (previewService as any).runner,
         liveSessionManager,
     }));
-    app.use('/api/scrypted', createScryptedRouter(pgPool, scrypted));
+    
+    const pluginRepository = new PluginRepository(scrypted);
+    const deviceModelFactory = new DeviceModelFactory();
+    const deviceRepository = new DeviceRepository(pluginRepository, deviceModelFactory);
+    const coreService = new CoreServiceFacade(pluginRepository, deviceRepository);
+    
+    app.use('/api/scrypted', createScryptedRouter(coreService));
     app.use('/api/plugins', createPluginsRouter(pgPool));
 
     // Scryvex Pro Custom Frontend integration

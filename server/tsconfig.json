@@ -18,6 +18,10 @@
         "sourceMap": true,
     },
     "include": [
-        "src/**/*", 
-     ],
+        "src/**/*"
+    ],
+    "exclude": [
+        "test",
+        "**/*.test.ts"
+    ]
 }

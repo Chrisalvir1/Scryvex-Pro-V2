@@ -4,6 +4,7 @@ packages:
   - 'plugins/*'
   - '!plugins/cloud'
   - 'frontend'
+  - 'packages/*'
 
 dangerouslyAllowAllBuilds: true
 

@@ -1,7 +1,6 @@
+import type { DeviceModelView } from '@scryvex/contracts';
 import { PluginRepository } from './PluginRepository';
-import { DeviceModelFactory } from './DeviceModelFactory';
 import { DeviceRepository } from './DeviceRepository';
-import { DeviceModel } from './DeviceModel';
 
 /**
  * CoreServiceFacade
@@ -9,25 +8,20 @@ import { DeviceModel } from './DeviceModel';
  * Mantiene la orquestación de la plataforma sobre Scrypted.
  */
 export class CoreServiceFacade {
-    private pluginRepo: PluginRepository;
-    private deviceFactory: DeviceModelFactory;
-    private deviceRepo: DeviceRepository;
-
-    constructor(runtime: any) {
-        this.pluginRepo = new PluginRepository(runtime);
-        this.deviceFactory = new DeviceModelFactory(this.pluginRepo);
-        this.deviceRepo = new DeviceRepository(this.pluginRepo, this.deviceFactory);
-    }
+    constructor(
+        private readonly pluginRepo: PluginRepository,
+        private readonly deviceRepo: DeviceRepository
+    ) {}
 
     async listPlugins(): Promise<string[]> {
         return this.pluginRepo.getRawPlugins();
     }
 
-    async listDevices(): Promise<DeviceModel[]> {
+    async listDevices(): Promise<{ devices: DeviceModelView[], errors: any[] }> {
         return await this.deviceRepo.listDevices();
     }
 
-    async getDevice(id: string): Promise<DeviceModel | undefined> {
-        return await this.deviceRepo.getDevice(id);
+    async getDevice(id: string): Promise<DeviceModelView | undefined> {
+        return await this.deviceRepo.getDeviceModel(id);
     }
 }

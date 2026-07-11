@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import type { Camera, CameraLog } from '../types/camera';
+import type { Camera } from '../types/camera';
 import type { MediaCapabilities } from '../hooks/useMediaCapabilities';
 import { apiUrl, publicAssetUrl } from '../lib/ingress-url';
 import { HlsPlayer } from './HlsPlayer';
@@ -56,7 +56,7 @@ function getBrandLogo(name: string): string {
     return '';
 }
 
-export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh }: Props) {
+export function LegacyCameraPanel({ cameras, capabilities: sysCaps, onDelete, onRefresh }: Props) {
     const [selectedId, setSelectedId]     = useState<string | null>(cameras[0]?.id ?? null);
     const [activeTab, setActiveTab]       = useState<ActiveTab>('preview');
     const [deletingId, setDeletingId]     = useState<string | null>(null);
@@ -68,7 +68,7 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
     const [snapshotObjectUrl, setSnapshotObjectUrl] = useState<string | null>(null);
     const [previewError, setPreviewError]     = useState<string | null>(null);
     const [previewCodec, setPreviewCodec]     = useState<string>('');
-    const [previewProfile, setPreviewProfile] = useState<string>('');
+    const [_previewProfile, setPreviewProfile] = useState<string>('');
     const [frameCount, setFrameCount]         = useState(0);
     const [previewMode, setPreviewMode]       = useState<'hls' | 'snapshot'>('hls');
     const [fallbackReason, setFallbackReason] = useState<string | null>(null);
@@ -87,8 +87,8 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
     const [matterCountdown, setMatterCountdown] = useState<number>(0);
     const [persistentLogs, setPersistentLogs] = useState<PersistentCameraLog[]>([]);
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
-    const [snapshotError, setSnapshotError] = useState<string | null>(null);
-    const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+    const [_snapshotError, setSnapshotError] = useState<string | null>(null);
+    const [_snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
 
     // Controls (light/siren still functional; audio removed)
     const [lightActive, setLightActive] = useState(false);
@@ -251,7 +251,7 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
             handleGeneratePairing();
         }
         return () => clearInterval(timer);
-    }, [matterCountdown, matterPairing, activeTab]);
+    }, [matterCountdown, matterPairing, activeTab, handleGeneratePairing]);
 
     const handleGeneratePairing = async () => {
         if (!selectedId) return;

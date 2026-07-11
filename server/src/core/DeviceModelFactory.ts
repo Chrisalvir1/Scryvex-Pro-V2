@@ -1,39 +1,63 @@
-import { ScryptedDevice } from '@scrypted/types';
-import { DeviceModel, UiSetting } from './DeviceModel';
-import { PluginRepository } from './PluginRepository';
+import * as crypto from 'crypto';
+import type { 
+    RawDeviceSnapshot, 
+    DeviceModelView, 
+    NormalizedSetting,
+    RawSettingSnapshot,
+    RawMediaOptionSnapshot,
+    NormalizedMediaOption
+} from '@scryvex/contracts';
 
 export class DeviceModelFactory {
-    private revisionMap = new Map<string, number>();
-
-    constructor(private readonly pluginRepo: PluginRepository) {}
-
-    async buildFromRaw(proxy: ScryptedDevice): Promise<DeviceModel> {
-        const currentRev = (this.revisionMap.get(proxy.id) || 0) + 1;
-        this.revisionMap.set(proxy.id, currentRev);
-
-        const rawSettings = await this.pluginRepo.getRawSettings(proxy);
-        const rawMedia = await this.pluginRepo.getRawMediaOptions(proxy);
+    public buildFromSnapshot(snapshot: RawDeviceSnapshot): DeviceModelView {
+        // Calculate stable hash
+        const contentHash = this.calculateHash(snapshot);
         
-        const interfaces = proxy.interfaces || [];
+        const interfaces = [...snapshot.interfaces];
         const capabilities = this.normalizeCapabilities(interfaces);
 
         return {
-            id: proxy.id,
-            revision: currentRev,
-            generatedAt: new Date(),
-            plugin: proxy.pluginId || 'unknown',
-            name: proxy.name || proxy.info?.model || 'Unknown Device',
-            manufacturer: proxy.info?.manufacturer || 'Unknown',
-            model: proxy.info?.model || 'Unknown',
+            id: snapshot.id,
+            revision: contentHash,
+            generatedAt: new Date().toISOString(),
+            plugin: snapshot.pluginId || 'unknown',
+            name: snapshot.name || snapshot.model || 'Unknown Device',
+            manufacturer: snapshot.manufacturer || 'Unknown',
+            model: snapshot.model || 'Unknown',
             interfaces,
             capabilities,
             media: {
-                options: rawMedia
+                options: this.normalizeMedia(snapshot.id, snapshot.mediaOptions)
             },
-            settings: this.normalizeSettings(proxy.id, proxy.pluginId, rawSettings),
-            entities: [], // Computed later
-            diagnostics: { status: 'healthy' } // Placeholder
+            settings: this.normalizeSettings(snapshot.id, snapshot.pluginId, snapshot.settings),
+            diagnostics: { status: 'not_evaluated' }
         };
+    }
+
+    private calculateHash(snapshot: RawDeviceSnapshot): string {
+        const stableContent = {
+            id: snapshot.id,
+            pluginId: snapshot.pluginId,
+            interfaces: [...snapshot.interfaces].sort(),
+            settings: snapshot.settings.map((s: RawSettingSnapshot) => ({
+                key: s.key,
+                type: s.type,
+                value: s.value,
+                choices: s.choices
+            })),
+            mediaOptions: snapshot.mediaOptions.map((m: RawMediaOptionSnapshot) => ({
+                id: m.id,
+                name: m.name,
+                source: m.source
+            })),
+            readErrors: snapshot.readErrors.map((e: import('@scryvex/contracts').DeviceReadError) => ({
+                code: e.code,
+                source: e.source
+            }))
+        };
+        
+        const json = JSON.stringify(stableContent, Object.keys(stableContent).sort());
+        return crypto.createHash('sha256').update(json).digest('hex').substring(0, 12);
     }
 
     private normalizeCapabilities(interfaces: string[]): string[] {
@@ -49,46 +73,71 @@ export class DeviceModelFactory {
         return Array.from(capabilities);
     }
 
-    private normalizeSettings(deviceId: string, pluginId: string = 'unknown', rawSettings: any[]): UiSetting[] {
+    private normalizeMedia(deviceId: string, rawMedia: readonly RawMediaOptionSnapshot[]): NormalizedMediaOption[] {
+        return rawMedia.map(m => ({
+            id: m.id,
+            name: m.name,
+            container: m.container,
+            videoCodec: m.video?.codec,
+            audioCodec: m.audio?.codec,
+            width: m.width,
+            height: m.height,
+            fps: m.fps,
+            bitrate: m.bitrate,
+            source: m.source,
+            purpose: m.purpose
+        }));
+    }
+
+    private normalizeSettings(deviceId: string, pluginId: string = 'unknown', rawSettings: readonly RawSettingSnapshot[]): NormalizedSetting[] {
         if (!rawSettings) return [];
         return rawSettings.map(raw => {
-            const isSecret = raw.type === 'password' || raw.type === 'secret';
+            const mappedType = this.mapType(raw.type);
+            const isSecret = mappedType === 'password'; // El repo ya limpió el value, pero lo re-afirmamos semánticamente.
+            
             return {
                 pluginId,
                 deviceId,
                 key: raw.key,
                 title: raw.title || raw.key,
                 description: raw.description,
-                type: this.mapType(raw.type),
-                value: isSecret ? null : raw.value,
+                type: mappedType,
+                originalType: mappedType === 'unknown' ? raw.type : undefined,
+                value: isSecret ? null : (raw.value as string | number | boolean | null),
                 secret: isSecret,
                 configured: isSecret ? (raw.value !== null && raw.value !== undefined && raw.value !== '') : undefined,
-                choices: raw.choices,
+                choices: raw.choices ? [...raw.choices] : undefined,
                 group: raw.group || 'General',
                 subgroup: raw.subgroup,
                 advanced: !!raw.advanced,
                 hidden: !!raw.hidden,
                 readOnly: !!raw.readonly,
                 restartRequired: !!raw.restartRequired,
+                placeholder: raw.placeholder,
+                range: raw.range ? [...raw.range] as [number, number] : undefined,
+                multiple: raw.multiple,
+                combobox: raw.combobox,
+                deviceFilter: raw.deviceFilter,
                 source: 'scrypted',
                 classification: 'original'
             };
         });
     }
 
-    private mapType(type: string): UiSetting['type'] {
-        switch (type) {
+    private mapType(type: string): NormalizedSetting['type'] {
+        const lowerType = String(type || '').toLowerCase();
+        switch (lowerType) {
             case 'boolean':
             case 'number':
             case 'string':
             case 'password':
             case 'button':
-                return type;
+                return lowerType;
             default:
-                if (type?.includes('device')) return 'device';
-                if (type?.includes('interface')) return 'interface';
-                if (type?.includes('select')) return 'select';
-                return 'string';
+                if (lowerType.includes('device')) return 'device';
+                if (lowerType.includes('interface')) return 'interface';
+                if (lowerType.includes('select')) return 'select';
+                return 'unknown';
         }
     }
 }

@@ -13,7 +13,7 @@ export function HlsPlayer({ cameraId, hasAudio, onSnapshotFallback }: Props) {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [muted, setMuted] = useState(true);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [_error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const hlsRef = useRef<Hls | null>(null);
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -71,7 +71,7 @@ export function HlsPlayer({ cameraId, hasAudio, onSnapshotFallback }: Props) {
                 fetch(apiUrl(`api/cameras/${cameraId}/preview/hls/${sessionId}`), { method: 'DELETE', keepalive: true }).catch(() => {});
             }
         };
-    }, [cameraId, retryCount, onSnapshotFallback]);
+    }, [cameraId, retryCount, onSnapshotFallback, sessionId]);
 
     useEffect(() => {
         if (!sessionId || !videoRef.current) return;
