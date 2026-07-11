@@ -43,9 +43,10 @@ export function createCamerasRouter(
         sessionManager: import('../media/media-session-manager').MediaSourceSessionManager;
         selector: import('../media/media-selector').MediaSourceSelector;
         ffmpegRunner: import('../media/media-process-runner').IMediaProcessRunner;
+        liveSessionManager: import('../media/live-media-session').LiveMediaSessionManager;
     }
 ): Router {
-    const { probeService, previewService, onvifAdapter, providerRegistry, resolverRegistry, secretStore, mediaProbe, sessionManager } = services;
+    const { probeService, previewService, onvifAdapter, providerRegistry, resolverRegistry, secretStore, mediaProbe, sessionManager, liveSessionManager } = services;
     const router = Router();
     const streamController = new CameraStreamController(cameraService);
 
@@ -341,12 +342,86 @@ export function createCamerasRouter(
         }
     });
 
-    router.post('/:id/preview/session', async (_req, res) => {
-        res.status(501).json({ error: 'Preview WebRTC/HLS no está disponible; usa /snapshot cuando la cámara lo soporte' });
+    router.post('/:id/preview/hls/sessions', async (req, res) => {
+        try {
+            const camera = await cameraService.findById(req.params.id);
+            if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; }
+
+            const profileId = camera.capabilities?.video?.selectedProfileId;
+            if (!profileId) {
+                res.status(400).json({ error: 'No video profile selected' });
+                return;
+            }
+
+            const sessionId = await liveSessionManager.startSession(
+                camera.id, 
+                profileId, 
+                probeService, 
+                cameraService, 
+                req.app.locals.abortController?.signal // Optional global abort
+            );
+            
+            res.json({ sessionId });
+        } catch (error) {
+            res.status(502).json({ error: error instanceof Error ? error.message : String(error) });
+        }
     });
 
-    router.delete('/:id/preview/session', async (_req, res) => {
-        res.status(501).json({ error: 'No hay sesiones de preview activas' });
+    router.get('/:id/preview/hls/:sessionId/index.m3u8', async (req, res) => {
+        const { id, sessionId } = req.params;
+        const camera = await cameraService.findById(id);
+        const profileId = camera?.capabilities?.video?.selectedProfileId;
+        if (!profileId) { res.status(404).end(); return; }
+
+        liveSessionManager.heartbeatConsumer(id, profileId, sessionId);
+        const dir = liveSessionManager.getHlsDir(id, profileId);
+        if (!dir) { res.status(404).end(); return; }
+
+        const file = require('path').join(dir, 'index.m3u8');
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Cache-Control', 'no-store, no-cache');
+        res.sendFile(file, (err) => {
+            if (err) res.status(404).end();
+        });
+    });
+
+    router.get('/:id/preview/hls/:sessionId/:segment', async (req, res) => {
+        const { id, sessionId, segment } = req.params;
+        const camera = await cameraService.findById(id);
+        const profileId = camera?.capabilities?.video?.selectedProfileId;
+        if (!profileId || !segment.endsWith('.ts')) { res.status(404).end(); return; }
+
+        liveSessionManager.heartbeatConsumer(id, profileId, sessionId);
+        const dir = liveSessionManager.getHlsDir(id, profileId);
+        if (!dir) { res.status(404).end(); return; }
+
+        const file = require('path').join(dir, segment);
+        res.setHeader('Content-Type', 'video/mp2t');
+        res.setHeader('Cache-Control', 'no-store, no-cache');
+        res.sendFile(file, (err) => {
+            if (err) res.status(404).end();
+        });
+    });
+
+    router.post('/:id/preview/hls/:sessionId/heartbeat', async (req, res) => {
+        const { id, sessionId } = req.params;
+        const camera = await cameraService.findById(id);
+        const profileId = camera?.capabilities?.video?.selectedProfileId;
+        if (!profileId) { res.status(404).json({ error: 'No profile' }); return; }
+
+        const ok = liveSessionManager.heartbeatConsumer(id, profileId, sessionId);
+        if (ok) res.json({ success: true });
+        else res.status(404).json({ error: 'Session not active' });
+    });
+
+    router.delete('/:id/preview/hls/:sessionId', async (req, res) => {
+        const { id, sessionId } = req.params;
+        const camera = await cameraService.findById(id);
+        const profileId = camera?.capabilities?.video?.selectedProfileId;
+        if (profileId) {
+            liveSessionManager.removeConsumer(id, profileId, sessionId);
+        }
+        res.json({ success: true });
     });
 
     // ── Stream Controls ───────────────────────────────────────────────────────

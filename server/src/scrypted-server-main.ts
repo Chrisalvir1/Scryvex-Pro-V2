@@ -889,6 +889,11 @@ async function start(mainFilename: string, options?: {
     const previewService = new PreviewService(
         sessionManager, selector, providerRegistry, mediaProbe, resolverRegistry, secretStore
     );
+    
+    // Live Media Session Manager para Fase 1 Subfase A (HLS RC1)
+    const { LiveMediaSessionManager } = await import('./media/live-media-session.js');
+    const liveSessionManager = new LiveMediaSessionManager(sessionManager, (previewService as any).runner);
+
     // ---------------------------------------
 
     app.use('/api/system', createSystemRouter());
@@ -904,6 +909,7 @@ async function start(mainFilename: string, options?: {
         sessionManager,
         selector,
         ffmpegRunner: (previewService as any).runner,
+        liveSessionManager,
     }));
     app.use('/api/plugins', createPluginsRouter(pgPool));
 

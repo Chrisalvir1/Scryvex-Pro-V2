@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import type { Camera, CameraLog } from '../types/camera';
 import type { MediaCapabilities } from '../hooks/useMediaCapabilities';
 import { apiUrl, publicAssetUrl } from '../lib/ingress-url';
+import { HlsPlayer } from './HlsPlayer';
 
 interface Props {
     cameras: Camera[];
@@ -69,6 +70,8 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
     const [previewCodec, setPreviewCodec]     = useState<string>('');
     const [previewProfile, setPreviewProfile] = useState<string>('');
     const [frameCount, setFrameCount]         = useState(0);
+    const [previewMode, setPreviewMode]       = useState<'hls' | 'snapshot'>('hls');
+    const [fallbackReason, setFallbackReason] = useState<string | null>(null);
 
     // Refs — not state, so they don't trigger re-renders
     const pollingActive   = useRef(false);
@@ -104,6 +107,8 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
         setPreviewCodec('');
         setPreviewProfile('');
         setFrameCount(0);
+        setPreviewMode('hls');
+        setFallbackReason(null);
         pollingActive.current = false;
         currentAC.current?.abort();
         currentAC.current = null;
@@ -485,6 +490,17 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                                                                         className="mt-4 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg"
                                                                     >Reintentar</button>
                                                                 </div>
+                                                            ) : previewMode === 'hls' ? (
+                                                                <HlsPlayer 
+                                                                    cameraId={selected.id}
+                                                                    hasAudio={capabilities?.audio.available ?? false}
+                                                                    onSnapshotFallback={(reason) => {
+                                                                        setFallbackReason(reason);
+                                                                        setPreviewMode('snapshot');
+                                                                        pollingActive.current = true;
+                                                                        schedulePoll(selected.id, 0);
+                                                                    }}
+                                                                />
                                                             ) : snapshotObjectUrl ? (
                                                                 <img
                                                                     key={snapshotObjectUrl}
@@ -493,15 +509,28 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                                                                     className="w-full h-full object-contain"
                                                                 />
                                                             ) : (
-                                                                <span className="text-gray-500 font-mono text-sm">Conectando…</span>
+                                                                <span className="text-gray-500 font-mono text-sm">Conectando Snapshot…</span>
                                                             )}
                                                             {/* HUD */}
-                                                            {snapshotObjectUrl && !previewError && (
-                                                                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded px-3 py-1.5 flex flex-col items-end gap-1 text-[10px] font-mono text-white/80">
-                                                                    <div>CODEC: <span className="text-blue-400 font-bold">{previewCodec || 'Detectando…'}</span></div>
-                                                                    <div>RES: <span className="text-emerald-400">{capabilities?.video.profiles[0]?.width && capabilities.video.profiles[0]?.height ? `${capabilities.video.profiles[0].width}x${capabilities.video.profiles[0].height}` : '—'}</span></div>
-                                                                    <div>FRAMES: <span className="text-yellow-400">{frameCount}</span></div>
-                                                                    <div className="text-gray-500 text-[9px]">{previewProfile ? `Perfil: ${previewProfile.slice(0, 16)}` : ''}</div>
+                                                            {((snapshotObjectUrl && previewMode === 'snapshot') || previewMode === 'hls') && !previewError && (
+                                                                <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded px-3 py-1.5 flex flex-col items-end gap-1 text-[10px] font-mono text-white/80 z-20">
+                                                                    <div className="bg-white/10 px-1.5 rounded font-bold mb-1">{previewMode === 'hls' ? 'HLS LIVE' : 'SNAPSHOT'}</div>
+                                                                    {previewMode === 'hls' ? (
+                                                                        <>
+                                                                            <div>VIDEO: <span className="text-blue-400 font-bold">H.264 720p</span></div>
+                                                                            <div>AUDIO: <span className="text-emerald-400">{capabilities?.audio.available ? 'AAC-LC 48kHz' : 'No'}</span></div>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <div>CODEC: <span className="text-blue-400 font-bold">{previewCodec || 'Detectando…'}</span></div>
+                                                                            <div>FRAMES: <span className="text-yellow-400">{frameCount}</span></div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {fallbackReason && previewMode === 'snapshot' && !previewError && (
+                                                                <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[10px] px-3 py-1 rounded-full backdrop-blur-md whitespace-nowrap z-20">
+                                                                    Fallback: {fallbackReason}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -538,12 +567,13 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                                                         } else {
                                                             // Start
                                                             setIsPlaying(true);
-                                                            setStreamLoading(true);
+                                                            setStreamLoading(false); // HLS Player handles its own loading state
                                                             setPreviewError(null);
                                                             setFrameCount(0);
+                                                            setPreviewMode('hls');
+                                                            setFallbackReason(null);
                                                             firstFrameLogged.current = false;
-                                                            pollingActive.current = true;
-                                                            schedulePoll(selected.id, 0);
+                                                            // We don't call schedulePoll here unless fallback happens
                                                         }
                                                     }}
                                                     className={`px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${!sysCaps || sysCaps.ffmpeg?.usable ? (isPlaying ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-emerald-500 text-white hover:bg-emerald-400') : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
@@ -566,7 +596,7 @@ export function CameraList({ cameras, capabilities: sysCaps, onDelete, onRefresh
                                                 >
                                                     🚨 Sirena
                                                 </button>}
-                                                <span className="text-[9px] text-gray-600 font-mono self-center">Snapshot Polling · Fase A</span>
+                                                <span className="text-[9px] text-gray-600 font-mono self-center">{previewMode === 'hls' ? 'Live HLS · Fase 1 (RC1)' : 'Snapshot Polling · Fase A'}</span>
                                             </div>
                                         </div>
                                     </div>
