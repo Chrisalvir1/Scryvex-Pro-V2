@@ -2,8 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.47] - 2026-07-10
+## [2.2.3] - 2026-07-10
+### Fixed
+- **S6-rc Bootstrap**: Solucionado el error `ENOEXEC` (código 100 y restart loop) quitando el bit de ejecución al archivo `up` de `postgres-setup` en `setup-s6.sh`, permitiendo que `s6-rc-compile` genere correctamente el shebang de `execlineb` sin romper la directiva de seguridad s6.
 
+## [2.2.2] - 2026-07-10
+### Changed
+- **S6-rc Oneshot**: Extracción limpia del inicializador de base de datos a un script bash independiente `/usr/local/bin/scryvex-postgres-setup`.
+
+## [2.2.1] - 2026-07-10
+### Fixed
+- **Dockerfile Build**: Resolución de la compilación de `matterbridge` validando directamente el archivo `package.json` de la ruta `server/node_modules/matterbridge/package.json`.
+
+## [2.2.0] - 2026-07-10
+### Added
+- **HLS Subfase A**: Implementación inicial de streaming con `LiveMediaSessionManager` y `HlsPlayer`.
+
+## [2.1.47] - 2026-07-10
 ### Changed
 - **Estabilización V4-R1:** Refactorización final de la Arquitectura Multimedia para soporte universal y local.
 - **Legacy Plugins Adapter:** Infraestructura añadida para soportar y unificar plugins heredados (`Ring`, `Nest`, `UniFi`, etc.) dentro de la nueva arquitectura de *resolvers* (`LegacyPluginMediaProviderAdapter`).

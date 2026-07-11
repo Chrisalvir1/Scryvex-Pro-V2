@@ -1,5 +1,6 @@
 #!/command/with-contenv bash
-set -Eeuo pipefail
+set -Eeuxo pipefail
+trap 'rc=$?; echo "[postgres-setup] ERROR rc=$rc line=$LINENO command=$BASH_COMMAND" >&2' ERR
 
 echo "[postgres-setup] Esperando PostgreSQL..."
 

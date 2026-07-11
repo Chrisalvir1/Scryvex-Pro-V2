@@ -27,7 +27,6 @@ echo "oneshot" > addon/rootfs/etc/s6-overlay/s6-rc.d/postgres-setup/type
 cat << 'EOF' > addon/rootfs/etc/s6-overlay/s6-rc.d/postgres-setup/up
 /usr/local/bin/scryvex-postgres-setup
 EOF
-chmod +x addon/rootfs/etc/s6-overlay/s6-rc.d/postgres-setup/up
 touch addon/rootfs/etc/s6-overlay/s6-rc.d/postgres-setup/dependencies.d/postgres
 
 # scryvex-core

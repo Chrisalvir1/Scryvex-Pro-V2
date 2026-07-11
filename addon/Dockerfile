@@ -69,7 +69,15 @@ RUN set -eux; \
     grep -qx '/usr/local/bin/scryvex-postgres-setup' \
         /etc/s6-overlay/s6-rc.d/postgres-setup/up; \
     ! grep -q '^until ' \
-        /etc/s6-overlay/s6-rc.d/postgres-setup/up
+        /etc/s6-overlay/s6-rc.d/postgres-setup/up; \
+    ls -la /usr/local/bin/scryvex-postgres-setup; \
+    cat /etc/s6-overlay/s6-rc.d/postgres-setup/up; \
+    bash -n /usr/local/bin/scryvex-postgres-setup; \
+    command -v su; \
+    command -v psql; \
+    command -v createdb; \
+    command -v pg_isready; \
+    ls -la /usr/lib/postgresql/15/bin/
 
 # 10. Validar versiones requeridas (Fase 0 - Matter Base)
 RUN echo "=== Validating required versions ===" \
