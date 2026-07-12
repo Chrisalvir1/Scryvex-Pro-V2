@@ -42,7 +42,7 @@ export class RtspAdapter implements CameraMediaProvider, DeviceControlProvider {
             sourceType: 'rtsp',
             transport: 'tcp',
             deviceId,
-            sourceLocatorRef: `camera:${deviceId}:rtsp:primary`,
+            sourceLocatorRef: config.rtsp_url,
             credentialRef: deviceId,
         };
 

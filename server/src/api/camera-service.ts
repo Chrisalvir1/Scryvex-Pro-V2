@@ -3,6 +3,8 @@ import { CameraStatus, CameraEvent, CreateCameraInput, CameraProtocol } from '..
 import type { CameraCapabilities, DiscoveryStatus, StreamProfile } from '../cameras/camera-adapter';
 import { emptyCapabilities } from '../cameras/camera-adapter';
 import type { CameraConnectionInput } from '../cameras/camera-adapter';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 export { CameraStatus, CameraEvent, CreateCameraInput, CameraProtocol };
 
 export interface Camera {
@@ -38,10 +40,44 @@ export class CameraService {
         return { id: camera.id, ip: camera.ip, port: camera.port, onvif_port: camera.onvif_port, rtsp_url: camera.rtsp_url, username: camera.username, password: camera.password_hash, config: camera.config };
     }
 
-    async create(input: CreateCameraInput): Promise<Camera> {
-        const result = await this.pool.query<Camera>(`INSERT INTO scryvex_core.cameras (name, ip, port, rtsp_url, onvif_port, username, password_hash, protocol, codec, config, hksv_codecs, hksv_video_tiers, hksv_audio_codec, hksv_audio_samplerate, hksv_capabilities, hksv_motion_zones, matter_vendor_id, matter_product_id, matter_device_name, adapter_type, discovery_status, capabilities, stream_profiles) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'pending','{}','[]') RETURNING ${this.select}`, [input.name, input.ip, input.port, input.rtsp_url ?? null, input.onvif_port ?? null, input.username ?? null, input.password ?? null, input.protocol, input.codec ?? null, JSON.stringify(input.config ?? {}), input.hksv_codecs ?? null, input.hksv_video_tiers ? JSON.stringify(input.hksv_video_tiers) : null, input.hksv_audio_codec ?? null, input.hksv_audio_samplerate ?? null, JSON.stringify(input.hksv_capabilities ?? {}), JSON.stringify(input.hksv_motion_zones ?? {}), input.matter_vendor_id ?? null, input.matter_product_id ?? null, input.matter_device_name ?? null, input.protocol]);
-        return result.rows[0]!;
+    async create(input: Partial<Camera>) {
+        const id = crypto.randomUUID();
+        const inputWithPwd = input as any;
+        const hash = inputWithPwd.password ? await bcrypt.hash(inputWithPwd.password, 10) : null;
+        const res = await this.pool.query<Camera>(
+            `INSERT INTO scryvex_core.cameras (id,name,ip,port,rtsp_url,onvif_port,username,password_hash,protocol,status,discovery_status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'offline','pending') RETURNING ${this.select}`,
+            [id, input.name || 'Cámara sin nombre', input.ip || '', input.port || 554, input.rtsp_url || '', input.onvif_port || 8000, input.username || '', hash, input.protocol || 'RTSP']
+        );
+        return res.rows[0]!;
     }
+    
+    async update(id: string, input: Partial<Camera>) {
+        const current = await this.pool.query(`SELECT password_hash FROM scryvex_core.cameras WHERE id = $1`, [id]);
+        if (current.rowCount === 0) throw new Error('Camera not found');
+        
+        let hash = current.rows[0].password_hash;
+        const inputWithPwd = input as any;
+        if (inputWithPwd.password !== undefined && inputWithPwd.password !== '') {
+            hash = await bcrypt.hash(inputWithPwd.password, 10);
+        }
+
+        const res = await this.pool.query<Camera>(
+            `UPDATE scryvex_core.cameras 
+             SET name = COALESCE($2, name), 
+                 ip = COALESCE($3, ip), 
+                 port = COALESCE($4, port), 
+                 rtsp_url = COALESCE($5, rtsp_url), 
+                 onvif_port = COALESCE($6, onvif_port), 
+                 username = COALESCE($7, username), 
+                 password_hash = $8, 
+                 protocol = COALESCE($9, protocol),
+                 updated_at = NOW()
+             WHERE id = $1 RETURNING ${this.select}`,
+            [id, input.name, input.ip, input.port, input.rtsp_url, input.onvif_port, input.username, hash, input.protocol]
+        );
+        return res.rows[0]!;
+    }
+
     async updateStatus(id: string, status: CameraStatus) { await this.pool.query(`UPDATE scryvex_core.cameras SET status = $1, updated_at = NOW() WHERE id = $2`, [status, id]); }
     async updateDiscovery(id: string, status: DiscoveryStatus, capabilities?: CameraCapabilities, profiles?: StreamProfile[], error?: string, evidence?: any[]) { await this.pool.query(`UPDATE scryvex_core.cameras SET discovery_status=$1, capabilities=COALESCE($2, capabilities), stream_profiles=COALESCE($3, stream_profiles), capability_evidence=COALESCE($6, capability_evidence), last_probe_at=NOW(), last_error=$4, status=CASE WHEN $1='online' THEN 'online' WHEN $1 IN ('offline','error','authentication_failed') THEN 'offline' ELSE status END, updated_at=NOW() WHERE id=$5`, [status, capabilities ? JSON.stringify(capabilities) : null, profiles ? JSON.stringify(profiles) : null, error ?? null, id, evidence ? JSON.stringify(evidence) : null]); }
     async updateHomeKitCompatibility(id: string, compat: Record<string, unknown>) { await this.pool.query(`UPDATE scryvex_core.cameras SET homekit_compatibility = $1::jsonb, updated_at = NOW() WHERE id = $2`, [JSON.stringify(compat), id]); }

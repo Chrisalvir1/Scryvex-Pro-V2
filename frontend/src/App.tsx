@@ -5,6 +5,7 @@ import { LegacyCameraPanel } from './components/LegacyCameraPanel';
 import { UniversalDeviceList } from './components/universal/UniversalDeviceList';
 import { ScryvexCameraList } from './components/universal/ScryvexCameraList';
 import { AddCameraModal } from './components/AddCameraModal';
+import { EditCameraModal } from './components/EditCameraModal';
 import { useScryvexCameras } from './hooks/useScryvexCameras';
 import { useMediaCapabilities } from './hooks/useMediaCapabilities';
 import type { CreateCameraInput } from './types/camera';
@@ -49,9 +50,10 @@ function DiagnosticsBanner() {
 
 function UniversalApp() {
     const { devices, loading: loadingDevices, error: errorDevices, refetch: refetchDevices } = useUniversalDevices();
-    const { cameras, loading, error, refetch, addCamera } = useScryvexCameras();
+    const { cameras, loading, error, refetch, addCamera, updateCamera } = useScryvexCameras();
     const [currentView, setCurrentView] = useState<'cameras' | 'scrypted' | 'plugins'>('cameras');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingCamera, setEditingCamera] = useState<import('./types/camera').Camera | null>(null);
 
     return (
         <div className="min-h-screen bg-[#080c10] text-white flex flex-col">
@@ -111,6 +113,7 @@ function UniversalApp() {
                             error={error}
                             onRefresh={refetch}
                             onAddCamera={() => setShowAddModal(true)}
+                            onEditCamera={setEditingCamera}
                         />
                     </div>
                 )}
@@ -126,6 +129,7 @@ function UniversalApp() {
                 )}
             </main>
             {showAddModal && <AddCameraModal onClose={() => setShowAddModal(false)} onAdd={addCamera} />}
+            {editingCamera && <EditCameraModal camera={editingCamera} onClose={() => setEditingCamera(null)} onSave={updateCamera} />}
         </div>
     );
 }

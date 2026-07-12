@@ -113,6 +113,25 @@ export function createCamerasRouter(
         }
     });
 
+    router.patch('/:id', async (req, res) => {
+        try {
+            const body = req.body;
+            const updated = await cameraService.update(req.params.id, body);
+            getWsBridge()?.broadcastCamerasUpdated('camera.updated', updated.id);
+            res.json({ camera: updated });
+
+            // If important connection fields changed, re-probe
+            if (body.ip || body.port || body.rtsp_url || body.onvif_port || body.username || body.password !== undefined) {
+                void probeService.runProbe(updated.id)
+                    .then(() => getWsBridge()?.broadcastCamerasUpdated('camera.updated', updated.id))
+                    .catch((error: any) => console.error('[cameras-router] async probe failed after update:', error.message));
+            }
+        } catch (err: any) {
+            console.error('[cameras-router] PATCH /api/cameras error:', err.message);
+            res.status(500).json({ error: 'Failed to update camera', detail: err.message });
+        }
+    });
+
     router.delete('/:id', async (req: Request, res: Response) => {
         try {
             const id      = String(req.params['id']);
@@ -247,7 +266,7 @@ export function createCamerasRouter(
             await cameraService.recordLog(String(req.params.id), 'camera.preview.requested', { type: 'frame' });
 
             // B9: migrated to PreviewService.getFrame — no execFile
-            const frameBuffer = await previewService.getFrame(String(req.params.id), probeService);
+            const frameBuffer = await previewService.getFrame(String(req.params.id), probeService, cameraService);
 
             res.setHeader('Content-Type', 'image/jpeg');
             res.setHeader('Cache-Control', 'no-store, no-cache');
@@ -312,7 +331,7 @@ export function createCamerasRouter(
             if (!camera) { res.status(404).json({ error: 'Camera not found' }); return; }
 
             await cameraService.recordLog(camera.id, 'camera.snapshot.opened');
-            const frameBuffer = await previewService.getFrame(String(req.params.id), probeService);
+            const frameBuffer = await previewService.getFrame(String(req.params.id), probeService, cameraService);
             res.type('image/jpeg').send(frameBuffer);
         } catch (error) {
             const id = req.params.id;

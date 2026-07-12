@@ -1,6 +1,6 @@
 {
   "name": "@scryvex/server",
-  "version": "3.0.0-alpha.5",
+  "version": "3.0.0-alpha.6",
   "description": "Scryvex Pro Core",
   "dependencies": {
     "@scrypted/ffmpeg-static": "^6.1.0-build3",
@@ -40,6 +40,7 @@
     "@swc/core": "^1.15.43",
     "@swc/jest": "^0.2.39",
     "@types/adm-zip": "^0.5.7",
+    "@types/bcrypt": "^6.0.0",
     "@types/body-parser": "^1.19.5",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",

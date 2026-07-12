@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import type { Camera } from '../../types/camera';
 import { apiUrl } from '../../lib/ingress-url';
 
-export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCamera }: { 
+export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCamera, onEditCamera }: { 
     cameras: Camera[], 
     loading: boolean, 
     error: string | null,
     onRefresh: () => void,
-    onAddCamera: () => void
+    onAddCamera: () => void,
+    onEditCamera: (camera: Camera) => void
 }) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [previewKey, setPreviewKey] = useState<number>(0);
@@ -121,6 +122,7 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => setPreviewKey(k => k + 1)} className="px-3 py-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded transition-colors">Recargar Preview</button>
+                                <button onClick={() => onEditCamera(selectedCamera)} className="px-3 py-1.5 text-xs font-bold bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded transition-colors">Editar</button>
                                 <button onClick={() => handleRunProbe(selectedCamera.id)} disabled={probeState === 'running'} className="px-3 py-1.5 text-xs font-bold bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/40 text-blue-300 rounded transition-colors disabled:opacity-50">{probeState === 'running' ? 'Probando…' : 'Probar Conexión (Probe)'}</button>
                                 <button onClick={() => handleDelete(selectedCamera.id)} className="px-3 py-1.5 text-xs font-bold bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded transition-colors">Eliminar</button>
                             </div>

@@ -64,12 +64,16 @@ export class PreviewService {
     async getFrame(
         deviceId: string,
         cameraProbe: import('../api/camera-probe').CameraProbe,
+        cameraService: import('../api/camera-service').CameraService,
         signal?: AbortSignal
     ): Promise<Buffer> {
         const source = await this.resolveProfile(deviceId, cameraProbe, signal);
         const { id: sourceId, pluginId } = source.descriptor;
+        
+        await cameraService.recordLog(deviceId, 'camera.preview.source_resolved', { sourceId, pluginId });
 
         return this.sessionManager.executeWithSourceRetry(deviceId, sourceId, async (input, sig) => {
+            await cameraService.recordLog(deviceId, 'camera.preview.ffprobe.started', { args: input.ffmpegInputArguments });
             const args = [
                 '-hide_banner', '-loglevel', 'error',
                 ...input.ffmpegInputArguments,
@@ -97,15 +101,19 @@ export class PreviewService {
                 if (buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8 && buf[buf.length - 2] === 0xff && buf[buf.length - 1] === 0xd9) {
                     return buf;
                 }
-                throw new MediaOperationError('FFmpeg no devolvió un JPEG válido', 'unknown');
+                const err = new MediaOperationError('FFmpeg no devolvió un JPEG válido', 'unknown');
+                await cameraService.recordLog(deviceId, 'camera.preview.frame.failed', { reason: err.message });
+                throw err;
             }
 
             const errorCategory = classifyMediaError(result.stderr, result.exitCode);
-            throw new MediaOperationError(
-                `FFmpeg falló (exit ${result.exitCode}): ${result.stderr.slice(0, 256)}`,
-                errorCategory
-            );
-        }, pluginId, signal);
+            const errMsg = `FFmpeg falló (exit ${result.exitCode}): ${result.stderr.slice(0, 256)}`;
+            await cameraService.recordLog(deviceId, 'camera.preview.ffprobe.failed', { exitCode: result.exitCode, category: errorCategory, error: errMsg });
+            throw new MediaOperationError(errMsg, errorCategory);
+        }, pluginId, signal).catch(async err => {
+            await cameraService.recordLog(deviceId, 'camera.preview.frame.failed', { reason: err.message });
+            throw err;
+        });
     }
 
     async getDiagnosticsFrame(

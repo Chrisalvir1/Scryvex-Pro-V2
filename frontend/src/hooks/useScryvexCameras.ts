@@ -11,6 +11,7 @@ interface UseScryvexCamerasReturn {
     error: string | null;
     recentEvents: CameraEvent[];
     addCamera: (input: CreateCameraInput) => Promise<Camera>;
+    updateCamera: (id: string, input: Partial<CreateCameraInput>) => Promise<Camera>;
     deleteCamera: (id: string) => Promise<void>;
     refetch: () => Promise<void>;
 }
@@ -80,6 +81,24 @@ export function useScryvexCameras(): UseScryvexCamerasReturn {
         return data.camera;
     }, []);
 
+    const updateCamera = useCallback(async (id: string, input: Partial<CreateCameraInput>): Promise<Camera> => {
+        const res = await fetch(apiUrl(`${API_BASE}/${id}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(input),
+        });
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json() as { camera: Camera };
+        if (isMounted.current) {
+            setCameras(prev => prev.map(c => c.id === id ? data.camera : c));
+        }
+        return data.camera;
+    }, []);
+
     const deleteCamera = useCallback(async (id: string): Promise<void> => {
         const res = await fetch(apiUrl(`${API_BASE}/${id}`), { method: 'DELETE', credentials: 'same-origin' });
         if (!res.ok) {
@@ -99,7 +118,7 @@ export function useScryvexCameras(): UseScryvexCamerasReturn {
         }
 
         try {
-            const ws = new WebSocket(websocketUrl('/api/cameras/ws'));
+            const ws = new WebSocket(websocketUrl('/api/ws/cameras'));
             wsRef.current = ws;
 
             ws.onopen = () => {
@@ -163,6 +182,7 @@ export function useScryvexCameras(): UseScryvexCamerasReturn {
         error,
         recentEvents,
         addCamera,
+        updateCamera,
         deleteCamera,
         refetch: fetchCameras,
     };
