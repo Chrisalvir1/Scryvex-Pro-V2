@@ -945,8 +945,8 @@ async function start(mainFilename: string, options?: {
     const deviceRepository = new DeviceRepository(pluginRepository, deviceModelFactory);
     const coreService = new CoreServiceFacade(pluginRepository, deviceRepository);
     
-    app.use('/api/scrypted', createScryptedRouter(coreService));
-    app.use('/api/plugins', createPluginsRouter(pgPool));
+    app.use('/api/scrypted', createScryptedRouter(coreService, scrypted));
+    app.use('/api/plugins', createPluginsRouter(pgPool, scrypted));
 
     // Scryvex Pro Custom Frontend integration
     const frontendPath = path.resolve(__dirname, '../../frontend/dist');

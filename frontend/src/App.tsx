@@ -121,7 +121,7 @@ function InternalScryptedView() {
 }
 
 function UniversalApp() {
-    const [currentView, setCurrentView] = useState<'cameras' | 'scrypted' | 'plugins'>('cameras');
+    const [currentView, setCurrentView] = useState<'cameras' | 'scrypted' | 'plugins'>('scrypted');
 
     return (
         <div className="min-h-screen bg-[#080c10] text-white flex flex-col">
@@ -142,7 +142,7 @@ function UniversalApp() {
                                 onClick={() => setCurrentView('cameras')}
                                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'cameras' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
                             >
-                                Cámaras Nativas
+                                Cámaras Nativas (Legacy/Experimental)
                             </button>
                             <button
                                 onClick={() => setCurrentView('scrypted')}

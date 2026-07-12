@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 
 export function getScryptedVolume() {
-    const volumeDir = process.env.SCRYPTED_VOLUME || path.join(os.homedir(), '.scrypted', 'volume');
+    const volumeDir = process.env.SCRYPTED_VOLUME || path.join(os.homedir(), '.scryvex_pro', 'volume');
     return volumeDir;
 }
 
