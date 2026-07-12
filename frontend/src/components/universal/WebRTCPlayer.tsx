@@ -20,11 +20,16 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
     const videoRef = useRef<HTMLVideoElement>(null);
     const pcRef = useRef<RTCPeerConnection | null>(null);
     const sessionIdRef = useRef<string>('');
+    const heartbeatIntervalRef = useRef<any>(null);
     const [status, setStatus] = useState<PlayerStatus>('Estableciendo WebRTC');
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const frameNotifiedRef = useRef(false);
 
     const cleanup = useCallback(async () => {
+        if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+            heartbeatIntervalRef.current = null;
+        }
         const sid = sessionIdRef.current;
         if (sid) {
             fetch(apiUrl(`/api/scrypted/devices/${cameraId}/webrtc/${sid}`), {
@@ -52,7 +57,6 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
         frameNotifiedRef.current = false;
 
         let frameTimeout: any = null;
-        let heartbeatInterval: any = null;
         const onFrame = () => {
             if (frameNotifiedRef.current) return;
             frameNotifiedRef.current = true;
@@ -113,14 +117,21 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
                 sessionIdRef.current = data.sessionId;
 
                 // Iniciar heartbeat cada 20 segundos
-                heartbeatInterval = setInterval(async () => {
+                heartbeatIntervalRef.current = setInterval(async () => {
                     const sid = sessionIdRef.current;
                     if (!sid || cancelled) return;
                     try {
-                        await fetch(apiUrl(`/api/scrypted/devices/${cameraId}/webrtc/${sid}/heartbeat`), {
+                        const hbRes = await fetch(apiUrl(`/api/scrypted/devices/${cameraId}/webrtc/${sid}/heartbeat`), {
                             method: 'POST',
                             credentials: 'same-origin',
                         });
+                        if (!hbRes.ok) {
+                            if (heartbeatIntervalRef.current) {
+                                clearInterval(heartbeatIntervalRef.current);
+                                heartbeatIntervalRef.current = null;
+                            }
+                            handleError('Sesión WebRTC inválida o expirada en el servidor.');
+                        }
                     } catch (e) {
                         console.warn('[WebRTCPlayer] Heartbeat request failed:', e);
                     }
@@ -146,7 +157,6 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
         return () => {
             cancelled = true;
             if (frameTimeout) clearTimeout(frameTimeout);
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (vid) {
                 vid.removeEventListener('loadeddata', onFrame);
                 vid.removeEventListener('playing', onFrame);

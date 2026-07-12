@@ -217,6 +217,10 @@ export function createScryptedRouter(coreService: CoreServiceFacade, scrypted: a
 
     // POST /api/scrypted/devices/:id/webrtc/negotiate
     router.post('/devices/:id/webrtc/negotiate', async (req: Request, res: Response) => {
+        let control: any = undefined;
+        let sessionId: string | undefined = undefined;
+        let answerTimeout: NodeJS.Timeout | undefined = undefined;
+
         try {
             const deviceId = req.params.id as string;
             const { offer } = req.body;
@@ -280,26 +284,47 @@ export function createScryptedRouter(coreService: CoreServiceFacade, scrypted: a
                 getOptions: async () => session.options
             };
 
-            const control = await signalingChannel.startRTCSignalingSession(session);
-            const answer = await Promise.race([
-                answerPromise,
-                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('WebRTC negotiation timeout')), 15000))
-            ]);
-
-            const sessionId = crypto.randomUUID();
-            if (control) {
-                const now = Date.now();
-                activeSessions.set(sessionId, {
-                    cameraId: deviceId,
-                    control,
-                    createdAt: now,
-                    lastActivityAt: now
-                });
+            control = await signalingChannel.startRTCSignalingSession(session);
+            if (!control) {
+                res.status(500).json({ error: 'Scrypted runtime did not return RTCSessionControl' });
+                return;
             }
+
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                answerTimeout = setTimeout(() => reject(new Error('WebRTC negotiation timeout')), 15000);
+            });
+
+            const answer = await Promise.race([answerPromise, timeoutPromise]);
+            if (answerTimeout) {
+                clearTimeout(answerTimeout);
+                answerTimeout = undefined;
+            }
+
+            sessionId = crypto.randomUUID();
+            const now = Date.now();
+            activeSessions.set(sessionId, {
+                cameraId: deviceId,
+                control,
+                createdAt: now,
+                lastActivityAt: now
+            });
 
             res.json({ answer, sessionId });
         } catch (err: unknown) {
             console.error('[ScryptedRouter] WebRTC negotiate error:', err);
+            if (answerTimeout) {
+                clearTimeout(answerTimeout);
+            }
+            if (sessionId) {
+                await closeSession(sessionId, 'Negotiation error after session registration');
+            } else if (control) {
+                console.log('[ScryptedRouter] Cleaning up control after negotiation error before registration');
+                try {
+                    await control.endSession();
+                } catch (e) {
+                    console.warn('[ScryptedRouter] Error ending control during negotiate error cleanup:', e);
+                }
+            }
             res.status(500).json({ error: 'WebRTC negotiation failed', detail: publicError(err) });
         }
     });
