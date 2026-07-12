@@ -3,7 +3,9 @@ import { useScryptedCameras } from './hooks/useScryptedCameras';
 import { useUniversalDevices } from './hooks/useUniversalDevices';
 import { LegacyCameraPanel } from './components/LegacyCameraPanel';
 import { UniversalDeviceList } from './components/universal/UniversalDeviceList';
+import { ScryvexCameraList } from './components/universal/ScryvexCameraList';
 import { AddCameraModal } from './components/AddCameraModal';
+import { useScryvexCameras } from './hooks/useScryvexCameras';
 import { useMediaCapabilities } from './hooks/useMediaCapabilities';
 import type { CreateCameraInput } from './types/camera';
 import { apiUrl } from './lib/ingress-url';
@@ -46,8 +48,10 @@ function DiagnosticsBanner() {
 }
 
 function UniversalApp() {
-    const { devices, loading, error, refetch } = useUniversalDevices();
-    const [currentView, setCurrentView] = useState<'cameras' | 'plugins'>('cameras');
+    const { devices, loading: loadingDevices, error: errorDevices, refetch: refetchDevices } = useUniversalDevices();
+    const { cameras, loading, error, refetch, addCamera } = useScryvexCameras();
+    const [currentView, setCurrentView] = useState<'cameras' | 'scrypted' | 'plugins'>('cameras');
+    const [showAddModal, setShowAddModal] = useState(false);
 
     return (
         <div className="min-h-screen bg-[#080c10] text-white flex flex-col">
@@ -64,7 +68,7 @@ function UniversalApp() {
 
                     <div className="flex items-center gap-3">
                         <span className="text-xs text-gray-600 font-mono">
-                            {devices.length} dispositivo{devices.length !== 1 ? 's' : ''}
+                            {cameras.length} cámara{cameras.length !== 1 ? 's' : ''} en Scryvex
                         </span>
 
                         <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 mx-4">
@@ -72,13 +76,13 @@ function UniversalApp() {
                                 onClick={() => setCurrentView('cameras')}
                                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'cameras' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
                             >
-                                Dispositivos
+                                Cámaras Nativas
                             </button>
                             <button
-                                onClick={() => setCurrentView('plugins')}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'plugins' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                                onClick={() => setCurrentView('scrypted')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors flex items-center gap-2 ${currentView === 'scrypted' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
                             >
-                                Plugins <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[9px]">NUEVO</span>
+                                Scrypted Interno
                             </button>
                         </div>
                     </div>
@@ -101,22 +105,27 @@ function UniversalApp() {
                 )}
                 {!loading && !error && currentView === 'cameras' && (
                     <div className="flex-1 overflow-hidden h-full">
-                        <UniversalDeviceList
-                            devices={devices}
+                        <ScryvexCameraList
+                            cameras={cameras}
                             loading={loading}
                             error={error}
                             onRefresh={refetch}
+                            onAddCamera={() => setShowAddModal(true)}
                         />
                     </div>
                 )}
-                {!loading && currentView === 'plugins' && (
-                    <div className="flex flex-col items-center justify-center py-24 text-center border border-white/10 rounded-xl bg-white/5 mx-auto max-w-2xl mt-8">
-                        <div className="text-4xl mb-4 opacity-50">🔌</div>
-                        <h2 className="text-xl font-bold text-white mb-2">Integraciones todavía no disponibles</h2>
-                        <p className="text-gray-400 text-sm max-w-md">La funcionalidad llegará pronto.</p>
+                {!loadingDevices && !errorDevices && currentView === 'scrypted' && (
+                    <div className="flex-1 overflow-hidden h-full">
+                        <UniversalDeviceList
+                            devices={devices}
+                            loading={loadingDevices}
+                            error={errorDevices}
+                            onRefresh={refetchDevices}
+                        />
                     </div>
                 )}
             </main>
+            {showAddModal && <AddCameraModal onClose={() => setShowAddModal(false)} onAdd={addCamera} />}
         </div>
     );
 }
