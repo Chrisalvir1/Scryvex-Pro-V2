@@ -209,6 +209,10 @@ export class PreviewService {
                     outputStream: res, // Delegar a Node para manejar backpressure
                 });
 
+                ff.stdout?.once('data', () => {
+                    void cameraService.recordLog(deviceId, 'camera.preview.first_frame', { sourceId, profileId: source.profile.id, codec: source.profile.codec });
+                });
+
                 this.activeSessions.set(correlationId, ff);
 
                 let watchdog: NodeJS.Timeout | null = null;

@@ -1,5 +1,4 @@
-import { ServerNode, VendorId, DeviceTypeId } from 'matterbridge/matter';
-import { CameraDevice } from 'matterbridge/matter/devices';
+import type { ServerNode } from 'matterbridge/matter';
 import crypto from 'node:crypto';
 
 export interface CameraCapabilities {
@@ -11,6 +10,7 @@ export interface CameraCapabilities {
 export class CameraMatterNode {
     private node?: ServerNode;
     private state: 'offline' | 'starting' | 'online' | 'error' = 'offline';
+    private matterCore: any;
 
     constructor(
         public readonly cameraId: string,
@@ -20,6 +20,14 @@ export class CameraMatterNode {
     async start(capabilities: CameraCapabilities) {
         this.state = 'starting';
         try {
+            if (!this.matterCore) {
+                this.matterCore = await import('matterbridge/matter');
+            }
+            const matterDevices = await import('matterbridge/matter/devices');
+
+            const { ServerNode, VendorId, DeviceTypeId } = this.matterCore;
+            const { CameraDevice } = matterDevices;
+
             const storageId = `camera-${this.cameraId}`;
 
             this.node = await ServerNode.create({
@@ -43,9 +51,9 @@ export class CameraMatterNode {
                 },
             });
 
-            this.node.add(CameraDevice);
+            this.node!.add(CameraDevice);
 
-            await this.node.start();
+            await this.node!.start();
             this.state = 'online';
             console.log(`[CameraMatterNode ${this.cameraId}] Node iniciado.`);
         } catch (error) {

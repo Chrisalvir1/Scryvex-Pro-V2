@@ -100,9 +100,35 @@ export class CameraProbe {
 
             for (const source of discovery.sources) {
                 let resolvedInput;
+                let probeResult;
+                const configTransport = camera.config?.rtsp_transport as string || 'auto';
+                
+                // For RTSP/ONVIF sources, we decide the transport
+                const transportsToTry = source.sourceType === 'rtsp' || source.sourceType === 'onvif' 
+                    ? (configTransport === 'auto' ? ['tcp', 'udp'] : [configTransport])
+                    : [source.transport];
+
                 try {
-                    resolvedInput = await this.resolverRegistry.resolve(source, this.secretStore);
-                    const probeResult = await this.mediaProbe.probeMediaStream(resolvedInput);
+                    let lastError: any;
+                    for (const transport of transportsToTry) {
+                        const modifiedSource = { ...source, transport: transport as any };
+                        resolvedInput = await this.resolverRegistry.resolve(modifiedSource, this.secretStore);
+                        probeResult = await this.mediaProbe.probeMediaStream(resolvedInput);
+                        
+                        // If successful, stop trying transports
+                        if (probeResult.success) {
+                            break;
+                        } else {
+                            lastError = probeResult;
+                            // Clean up the failed attempt
+                            if (resolvedInput?.cleanup) {
+                                await resolvedInput.cleanup().catch(() => {});
+                            }
+                        }
+                    }
+
+                    // Ensure probeResult is the last one (either success or the last failure)
+                    if (!probeResult) throw new Error('No probe result generated');
 
                     const profile: StreamProfile = {
                         id: source.id,

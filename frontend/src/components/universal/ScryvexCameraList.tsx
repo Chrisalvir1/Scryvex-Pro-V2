@@ -13,6 +13,8 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [previewKey, setPreviewKey] = useState<number>(0);
     const [probeState, setProbeState] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
+    const [liveMode, setLiveMode] = useState<boolean>(false);
+    const [liveError, setLiveError] = useState<boolean>(false);
     
     // Auto-selección
     useEffect(() => {
@@ -152,28 +154,44 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
                         )}
 
                         <div className="grid grid-cols-2 gap-6">
-                            {/* Preview Snapshot */}
+                            {/* Preview Snapshot / Live */}
                             <section className="col-span-2 md:col-span-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col">
                                 <div className="p-3 border-b border-white/10 bg-black/20 flex justify-between items-center">
-                                    <h3 className="text-xs font-bold text-gray-300">Preview JPEG</h3>
-                                    {selectedCamera.capabilities?.preview?.snapshot ? (
-                                        <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-bold">Soportado</span>
-                                    ) : (
-                                        <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">No Soportado</span>
-                                    )}
+                                    <div className="flex gap-2 items-center">
+                                        <button 
+                                            onClick={() => setLiveMode(false)}
+                                            className={`text-xs font-bold px-2 py-1 rounded transition-colors ${!liveMode ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+                                        >
+                                            Snapshot
+                                        </button>
+                                        <button 
+                                            onClick={() => { setLiveMode(true); setLiveError(false); setPreviewKey(k => k + 1); }}
+                                            disabled={!selectedCamera.capabilities?.preview?.mjpeg}
+                                            className={`text-xs font-bold px-2 py-1 rounded transition-colors ${liveMode ? 'bg-red-500/20 text-red-400' : 'text-gray-400 hover:text-white disabled:opacity-30'}`}
+                                        >
+                                            Live
+                                        </button>
+                                    </div>
+                                    {liveError && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">Fallback</span>}
                                 </div>
                                 <div className="flex-1 min-h-[200px] bg-black flex items-center justify-center relative">
-                                    {selectedCamera.capabilities?.preview?.snapshot ? (
+                                    {(selectedCamera.capabilities?.preview?.snapshot || selectedCamera.capabilities?.preview?.mjpeg) ? (
                                         <img 
                                             key={previewKey}
-                                            src={apiUrl(`/api/cameras/${selectedCamera.id}/preview/frame.jpg?t=${previewKey}`)} 
+                                            src={apiUrl(`/api/cameras/${selectedCamera.id}/${liveMode ? 'preview.mjpeg' : 'preview/frame.jpg'}?t=${previewKey}`)} 
                                             alt="Camera Preview" 
                                             className="w-full h-full object-contain"
                                             onError={(e) => {
                                                 const target = e.target as HTMLImageElement;
-                                                target.onerror = null; // prevent loop
-                                                target.src = '';
-                                                target.parentElement!.innerHTML = '<div class="text-xs text-red-400 p-4 text-center">Error al cargar preview real</div>';
+                                                target.onerror = null;
+                                                if (liveMode) {
+                                                    setLiveError(true);
+                                                    setLiveMode(false);
+                                                    setPreviewKey(k => k + 1);
+                                                } else {
+                                                    target.src = '';
+                                                    target.parentElement!.innerHTML = '<div class="text-xs text-red-400 p-4 text-center">Error al cargar preview</div>';
+                                                }
                                             }}
                                         />
                                     ) : (

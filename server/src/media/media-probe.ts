@@ -63,9 +63,14 @@ export class MediaProbeService {
         };
 
         if (result.exitCode !== 0) {
-            probeResult.errorCategory = classifyMediaError(result.stderr, result.exitCode);
-            if (result.stderr === 'Aborted') probeResult.errorCategory = 'cancelled';
-            probeResult.stderrSummary = result.stderr.substring(0, 500).replace(/\n/g, ' ').trim() || 'Unknown error';
+            // Sanitize stderr to remove credentials like //user:pass@ and tokens like ?token=abc
+            const sanitizedStderr = result.stderr
+                .replace(/\/\/[^:]+:[^@]+@/g, '//***:***@')
+                .replace(/([?&])(token|auth)=[^&\s]+/gi, '$1$2=***');
+                
+            probeResult.errorCategory = classifyMediaError(sanitizedStderr, result.exitCode);
+            if (sanitizedStderr === 'Aborted') probeResult.errorCategory = 'cancelled';
+            probeResult.stderrSummary = sanitizedStderr.substring(0, 500).replace(/\n/g, ' ').trim() || 'Unknown error';
         }
 
         try {

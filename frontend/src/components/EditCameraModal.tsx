@@ -41,17 +41,21 @@ export function EditCameraModal({ camera, onClose, onSave }: Props) {
     const [portTestLoading, setPortTestLoading] = useState(false);
     const [portTestResult, setPortTestResult] = useState<{ detectedPort?: number; message: string; results: Array<{ port: number; tcpReachable: boolean; onvif: boolean; message?: string }> } | null>(null);
 
+    const [rtspTransport, setRtspTransport] = useState<string>((camera.config?.rtsp_transport as string) || 'auto');
+    const [onvifTransport, setOnvifTransport] = useState<string>((camera.config?.rtsp_transport as string) || 'auto');
+
     const handleSave = async () => {
         setSaveError(null);
-        const input: Partial<CreateCameraInput> = localSub === 'rtsp'
+        const input: Partial<CreateCameraInput & { config: any }> = localSub === 'rtsp'
             ? {
                 name:     rtspName,
                 ip:       (() => { try { return new URL(rtspUrl.replace('rtsp://', 'http://')).hostname; } catch { return rtspUrl; } })(),
-                port:     554,
+                port:     (() => { try { return parseInt(new URL(rtspUrl.replace('rtsp://', 'http://')).port) || 554; } catch { return 554; } })(),
                 rtsp_url: rtspUrl,
                 username: rtspUser || undefined,
                 password: rtspPass || undefined,
                 protocol: 'RTSP' as CameraProtocol,
+                config: { rtsp_transport: rtspTransport },
             }
             : {
                 name:       onvifName,
@@ -61,6 +65,7 @@ export function EditCameraModal({ camera, onClose, onSave }: Props) {
                 username:   onvifUser || undefined,
                 password:   onvifPass || undefined,
                 protocol:   'ONVIF' as CameraProtocol,
+                config: { rtsp_transport: onvifTransport },
             };
 
         setSaving(true);
@@ -117,6 +122,13 @@ export function EditCameraModal({ camera, onClose, onSave }: Props) {
                                     <input type="password" value={rtspPass} onChange={e => setRtspPass(e.target.value)} placeholder="••••••••" className={inputClass} />
                                 </Field>
                             </div>
+                            <Field label="Transporte RTSP">
+                                <select value={rtspTransport} onChange={e => setRtspTransport(e.target.value)} className={inputClass}>
+                                    <option value="auto">Automático (TCP fallback a UDP)</option>
+                                    <option value="tcp">Solo TCP</option>
+                                    <option value="udp">Solo UDP</option>
+                                </select>
+                            </Field>
                         </div>
                     )}
 
@@ -143,6 +155,13 @@ export function EditCameraModal({ camera, onClose, onSave }: Props) {
                                     <input type="password" value={onvifPass} onChange={e => setOnvifPass(e.target.value)} placeholder="••••••••" className={inputClass} />
                                 </Field>
                             </div>
+                            <Field label="Transporte RTSP">
+                                <select value={onvifTransport} onChange={e => setOnvifTransport(e.target.value)} className={inputClass}>
+                                    <option value="auto">Automático (TCP fallback a UDP)</option>
+                                    <option value="tcp">Solo TCP</option>
+                                    <option value="udp">Solo UDP</option>
+                                </select>
+                            </Field>
                             <button type="button" onClick={testOnvifPorts} disabled={!onvifIp.trim() || portTestLoading} className="self-start px-4 py-2 text-xs font-bold text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 disabled:opacity-40">
                                 {portTestLoading ? 'Probando puertos…' : '🔎 Probar ONVIF y detectar puerto'}
                             </button>

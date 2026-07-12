@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import net from 'node:net';
 import { MatterRuntimeHost } from './matter-runtime-host.js';
-import { Environment } from 'matterbridge/matter';
 
 async function main() {
     console.log('Iniciando Scryvex Matterbridge Host (s6-rc)...');
@@ -11,9 +10,17 @@ async function main() {
         fs.mkdirSync(matterHome, { recursive: true });
     }
 
-    // Set default storage location for Matter
-    const env = Environment.default;
-    env.vars.set('storage.path', matterHome);
+    try {
+        const { Environment } = await import('matterbridge/matter');
+        // Set default storage location for Matter
+        const env = Environment.default;
+        env.vars.set('storage.path', matterHome);
+    } catch (err) {
+        console.error('[Scryvex Matter] Error cargando matterbridge/matter. Entrando en estado idle:', err);
+        // Idle loop to prevent crash loop in s6-rc
+        setInterval(() => {}, 60000);
+        return;
+    }
 
     const host = new MatterRuntimeHost(matterHome);
     await host.initialize();

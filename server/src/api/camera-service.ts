@@ -71,9 +71,10 @@ export class CameraService {
                  username = COALESCE($7, username), 
                  password_hash = $8, 
                  protocol = COALESCE($9, protocol),
+                 config = CASE WHEN $10::jsonb IS NOT NULL THEN config || $10::jsonb ELSE config END,
                  updated_at = NOW()
              WHERE id = $1 RETURNING ${this.select}`,
-            [id, input.name, input.ip, input.port, input.rtsp_url, input.onvif_port, input.username, hash, input.protocol]
+            [id, input.name, input.ip, input.port, input.rtsp_url, input.onvif_port, input.username, hash, input.protocol, input.config ? JSON.stringify(input.config) : null]
         );
         return res.rows[0]!;
     }
