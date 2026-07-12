@@ -7,20 +7,27 @@ export function UniversalDeviceList({ devices, loading, error, onRefresh }: {
     error: string | null,
     onRefresh: () => void 
 }) {
-    const [selectedId, setSelectedId] = useState<string | null>(devices[0]?.id ?? null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [showSystemDevices, setShowSystemDevices] = useState(false);
+    const cameraDevices = devices.filter(device =>
+        device.interfaces.includes('Camera')
+        || device.interfaces.includes('VideoCamera')
+        || device.interfaces.includes('Doorbell')
+    );
+    const visibleDevices = showSystemDevices ? devices : cameraDevices;
     
     // Auto-selección
     useEffect(() => {
-        if (!devices.length) {
+        if (!visibleDevices.length) {
             setSelectedId(null);
             return;
         }
-        if (!selectedId || !devices.find(d => d.id === selectedId)) {
-            setSelectedId(devices[0].id);
+        if (!selectedId || !visibleDevices.find(d => d.id === selectedId)) {
+            setSelectedId(visibleDevices[0].id);
         }
-    }, [devices, selectedId]);
+    }, [visibleDevices, selectedId]);
 
-    const selectedDevice = devices.find(d => d.id === selectedId);
+    const selectedDevice = visibleDevices.find(d => d.id === selectedId);
 
     if (loading) {
         return <div className="p-8 text-center text-gray-400 animate-pulse">Loading universal devices...</div>;
@@ -50,11 +57,38 @@ export function UniversalDeviceList({ devices, loading, error, onRefresh }: {
             {/* Sidebar */}
             <div className="w-80 border-r border-white/10 flex flex-col bg-black/20">
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                    <h2 className="font-bold text-sm text-gray-200">Universal Devices</h2>
-                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">{devices.length}</span>
+                    <div>
+                        <h2 className="font-bold text-sm text-gray-200">Cámaras de Scrypted</h2>
+                        <p className="text-[11px] text-gray-500 mt-0.5">Solo dispositivos de cámara reales</p>
+                    </div>
+                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">{cameraDevices.length}</span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                    {devices.map(device => (
+                    {!showSystemDevices && cameraDevices.length === 0 && (
+                        <div className="m-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                            <p className="font-semibold">Aún no hay cámaras en Scrypted.</p>
+                            <p className="mt-2 text-xs leading-relaxed text-amber-100/80">
+                                Esta vista solo muestra cámaras añadidas mediante un plugin de Scrypted, por ejemplo ONVIF u RTSP Camera. Los servicios internos no son cámaras ni controles de tu casa.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowSystemDevices(true)}
+                                className="mt-3 text-xs font-semibold text-amber-300 hover:text-amber-200"
+                            >
+                                Ver servicios técnicos ({devices.length})
+                            </button>
+                        </div>
+                    )}
+                    {showSystemDevices && (
+                        <button
+                            type="button"
+                            onClick={() => setShowSystemDevices(false)}
+                            className="m-2 text-left text-xs font-semibold text-blue-300 hover:text-blue-200"
+                        >
+                            ← Volver a cámaras ({cameraDevices.length})
+                        </button>
+                    )}
+                    {visibleDevices.map(device => (
                         <button
                             key={device.id}
                             onClick={() => setSelectedId(device.id)}
@@ -173,8 +207,8 @@ export function UniversalDeviceList({ devices, loading, error, onRefresh }: {
                         </div>
                     </div>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-                        Select a device to view universal projection.
+                    <div className="flex-1 flex items-center justify-center px-8 text-center text-gray-500 text-sm">
+                        No hay una cámara de Scrypted seleccionada. Añade o importa primero la cámara mediante un plugin Scrypted; la gestión guiada se incorporará en la siguiente etapa.
                     </div>
                 )}
             </div>

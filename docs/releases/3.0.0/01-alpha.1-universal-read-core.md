@@ -69,6 +69,15 @@ Supervisor. Se acepta ahora esa identidad solamente cuando la conexión llega
 desde el proxy documentado `172.30.32.2`; no se confían esos encabezados desde
 la LAN. Debe validarse desde el panel Ingress real antes de beta.1.
 
+### 2026-07-11 — feedback de usabilidad
+
+La primera vista universal mezclaba servicios internos de `@scrypted/core` con
+dispositivos de usuario y mostraba términos técnicos sin contexto. La lista se
+ajusta para priorizar cámaras/timbres reales y explicar claramente que una
+cámara heredada del panel legacy no aparece aquí hasta ser añadida mediante un
+plugin de Scrypted. Los servicios internos pasan a ser una vista técnica
+optativa.
+
 ## Criterios de salida
 
 - `pnpm install --frozen-lockfile` y los builds/test/lint definidos por CI
