@@ -9,24 +9,36 @@ function publicError(error: unknown): string {
     return message.replace(/([a-z][a-z0-9+.-]*:\/\/)([^@\s/]+)@/gi, '$1***:***@').slice(0, 512);
 }
 
-const activeSessions = new Map<string, { cameraId: string; control: any; createdAt: number; lastActivityAt: number }>();
+export const activeSessions = new Map<string, { cameraId: string; control: any; createdAt: number; lastActivityAt: number }>();
 
-// Periodic session cleanup for stale/abandoned sessions
-setInterval(() => {
+export async function closeSession(sessionId: string, reason: string): Promise<boolean> {
+    const session = activeSessions.get(sessionId);
+    if (!session) return false;
+    activeSessions.delete(sessionId);
+    console.log(`[ScryptedRouter] Closing WebRTC session ${sessionId} for camera ${session.cameraId}. Reason: ${reason}`);
+    try {
+        await session.control.endSession();
+    } catch (e) {
+        console.warn(`[ScryptedRouter] Error ending control session ${sessionId}:`, e);
+    }
+    return true;
+}
+
+let cleanupInterval = setInterval(() => {
     const now = Date.now();
     const TIMEOUT_MS = 60 * 1000; // 1 minute inactivity timeout
     for (const [sessionId, session] of activeSessions.entries()) {
         if (now - session.lastActivityAt > TIMEOUT_MS) {
-            console.log(`[ScryptedRouter] Cleaning up inactive WebRTC session ${sessionId} for camera ${session.cameraId}`);
-            try {
-                session.control.endSession();
-            } catch (e) {
-                console.warn(`[ScryptedRouter] Error closing expired session ${sessionId}:`, e);
-            }
-            activeSessions.delete(sessionId);
+            closeSession(sessionId, 'Timeout (no heartbeat for 60s)');
         }
     }
 }, 15000);
+
+export function stopWebRTCCleanupInterval() {
+    if (cleanupInterval) {
+        clearInterval(cleanupInterval);
+    }
+}
 
 export function createScryptedRouter(coreService: CoreServiceFacade, scrypted: any): Router {
     const router = Router();
@@ -307,17 +319,32 @@ export function createScryptedRouter(coreService: CoreServiceFacade, scrypted: a
                 return;
             }
 
-            console.log(`[ScryptedRouter] Explicitly ending WebRTC session ${sessionId} for camera ${id}`);
-            try {
-                await session.control.endSession();
-            } catch (e) {
-                console.warn('[ScryptedRouter] Error ending upstream RTCSessionControl:', e);
-            } finally {
-                activeSessions.delete(sessionId);
-            }
+            await closeSession(sessionId, 'Explicit client teardown');
             res.json({ success: true });
         } catch (err: unknown) {
             res.status(500).json({ error: 'Failed to end session', detail: publicError(err) });
+        }
+    });
+
+    // POST /api/scrypted/devices/:id/webrtc/:sessionId/heartbeat
+    router.post('/devices/:id/webrtc/:sessionId/heartbeat', async (req: Request, res: Response) => {
+        try {
+            const { id, sessionId } = req.params as any;
+            const session = activeSessions.get(sessionId);
+            if (!session) {
+                res.status(404).json({ error: 'Session not found' });
+                return;
+            }
+
+            if (session.cameraId !== id) {
+                res.status(400).json({ error: 'Session camera ID mismatch' });
+                return;
+            }
+
+            session.lastActivityAt = Date.now();
+            res.json({ success: true });
+        } catch (err: unknown) {
+            res.status(500).json({ error: 'Heartbeat failed', detail: publicError(err) });
         }
     });
 

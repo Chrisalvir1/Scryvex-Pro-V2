@@ -52,6 +52,7 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
         frameNotifiedRef.current = false;
 
         let frameTimeout: any = null;
+        let heartbeatInterval: any = null;
         const onFrame = () => {
             if (frameNotifiedRef.current) return;
             frameNotifiedRef.current = true;
@@ -111,6 +112,20 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
 
                 sessionIdRef.current = data.sessionId;
 
+                // Iniciar heartbeat cada 20 segundos
+                heartbeatInterval = setInterval(async () => {
+                    const sid = sessionIdRef.current;
+                    if (!sid || cancelled) return;
+                    try {
+                        await fetch(apiUrl(`/api/scrypted/devices/${cameraId}/webrtc/${sid}/heartbeat`), {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                        });
+                    } catch (e) {
+                        console.warn('[WebRTCPlayer] Heartbeat request failed:', e);
+                    }
+                }, 20000);
+
                 await pc.setRemoteDescription({ type: 'answer', sdp: data.answer });
                 setStatus('Conectando ICE');
 
@@ -131,6 +146,7 @@ export function WebRTCPlayer({ cameraId, onError, onClose }: WebRTCPlayerProps) 
         return () => {
             cancelled = true;
             if (frameTimeout) clearTimeout(frameTimeout);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (vid) {
                 vid.removeEventListener('loadeddata', onFrame);
                 vid.removeEventListener('playing', onFrame);
