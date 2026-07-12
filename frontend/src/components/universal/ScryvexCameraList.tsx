@@ -11,6 +11,7 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
 }) {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [previewKey, setPreviewKey] = useState<number>(0);
+    const [probeState, setProbeState] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
     
     // Auto-selección
     useEffect(() => {
@@ -26,10 +27,14 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
     const selectedCamera = cameras.find(c => c.id === selectedId);
 
     const handleRunProbe = async (id: string) => {
+        setProbeState('running');
         try {
-            await fetch(apiUrl(`/api/cameras/${id}/probe`), { method: 'POST', credentials: 'same-origin' });
+            const response = await fetch(apiUrl(`/api/cameras/${id}/test-connection`), { method: 'POST', credentials: 'same-origin' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            setProbeState('success');
             onRefresh();
         } catch (e) {
+            setProbeState('error');
             console.error('Probe failed:', e);
         }
     };
@@ -116,10 +121,13 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
                             </div>
                             <div className="flex gap-2">
                                 <button onClick={() => setPreviewKey(k => k + 1)} className="px-3 py-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded transition-colors">Recargar Preview</button>
-                                <button onClick={() => handleRunProbe(selectedCamera.id)} className="px-3 py-1.5 text-xs font-bold bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/40 text-blue-300 rounded transition-colors">Probar Conexión (Probe)</button>
+                                <button onClick={() => handleRunProbe(selectedCamera.id)} disabled={probeState === 'running'} className="px-3 py-1.5 text-xs font-bold bg-blue-600/20 border border-blue-500/30 hover:bg-blue-600/40 text-blue-300 rounded transition-colors disabled:opacity-50">{probeState === 'running' ? 'Probando…' : 'Probar Conexión (Probe)'}</button>
                                 <button onClick={() => handleDelete(selectedCamera.id)} className="px-3 py-1.5 text-xs font-bold bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded transition-colors">Eliminar</button>
                             </div>
                         </header>
+
+                        {probeState === 'success' && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">Diagnóstico ejecutado. Actualizando capacidades…</div>}
+                        {probeState === 'error' && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">No fue posible ejecutar el diagnóstico. Revisa los logs de la cámara.</div>}
 
                         {selectedCamera.last_error && (
                             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex gap-3 text-sm">
@@ -156,7 +164,7 @@ export function ScryvexCameraList({ cameras, loading, error, onRefresh, onAddCam
                                     {selectedCamera.capabilities?.preview?.snapshot ? (
                                         <img 
                                             key={previewKey}
-                                            src={apiUrl(`/api/cameras/${selectedCamera.id}/preview?t=${previewKey}`)} 
+                                            src={apiUrl(`/api/cameras/${selectedCamera.id}/preview/frame.jpg?t=${previewKey}`)} 
                                             alt="Camera Preview" 
                                             className="w-full h-full object-contain"
                                             onError={(e) => {
