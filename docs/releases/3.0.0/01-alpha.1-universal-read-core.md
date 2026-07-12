@@ -60,6 +60,15 @@ El Dockerfile ahora usa `main` como referencia por defecto para versiones de
 desarrollo y conserva `SOURCE_REF` para que CI construya desde un SHA, tag o
 rama explícitos. Una versión final deberá construirse desde su tag `v3.0.0`.
 
+### 2026-07-11 — autenticación Ingress
+
+La UI alpha respondió HTTP 401 aunque Home Assistant ya había autenticado al
+usuario por Ingress. El middleware de Scrypted solo entendía sus propias
+cookies/tokens y descartaba los encabezados `X-Remote-User-*` que agrega el
+Supervisor. Se acepta ahora esa identidad solamente cuando la conexión llega
+desde el proxy documentado `172.30.32.2`; no se confían esos encabezados desde
+la LAN. Debe validarse desde el panel Ingress real antes de beta.1.
+
 ## Criterios de salida
 
 - `pnpm install --frozen-lockfile` y los builds/test/lint definidos por CI

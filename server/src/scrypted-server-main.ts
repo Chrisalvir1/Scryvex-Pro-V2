@@ -307,6 +307,23 @@ async function start(mainFilename: string, options?: {
     }
 
     app.use(async (req, res, next) => {
+        // Home Assistant Ingress authenticates the user before proxying the
+        // request and injects X-Remote-User-* headers. Do not require a
+        // separate Scrypted cookie for that already-authenticated session.
+        // The Supervisor ingress proxy is documented at 172.30.32.2; checking
+        // the source address prevents a LAN client from forging these headers.
+        const ingressUserId = req.header('x-remote-user-id');
+        const ingressUserName = req.header('x-remote-user-name');
+        const ingressAddress = req.socket.remoteAddress;
+        const isSupervisorIngress = ingressAddress === '172.30.32.2'
+            || ingressAddress === '::ffff:172.30.32.2';
+        if (isSupervisorIngress && ingressUserId && ingressUserName) {
+            res.locals.username = `ha:${ingressUserId}`;
+            res.locals.aclId = undefined;
+            next();
+            return;
+        }
+
         // the remote address may be ipv6 prefixed so use a fuzzy match.
         // eg ::ffff:192.168.2.124
         if (process.env.SCRYPTED_ADMIN_USERNAME
