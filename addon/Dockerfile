@@ -69,11 +69,14 @@ RUN node -e "const fs=require('fs'); let p='package.json'; let d=JSON.parse(fs.r
 
 # 8. Instalar solamente el núcleo y sus dependencias transitivas. Los plugins
 # no publicados por este add-on se validan por separado en monorepo-integrity.
-RUN pnpm \
-    --filter "@scryvex/contracts..." \
-    --filter "@scryvex/server..." \
-    --filter "frontend..." \
-    install --frozen-lockfile
+RUN set -eux; \
+    for i in 1 2 3; do \
+      pnpm \
+        --filter "@scryvex/contracts..." \
+        --filter "@scryvex/server..." \
+        --filter "frontend..." \
+        install --frozen-lockfile && break || sleep 15; \
+    done
 
 # 8.5 Compilar Contratos, Backend y Frontend
 RUN pnpm --filter @scryvex/contracts run build

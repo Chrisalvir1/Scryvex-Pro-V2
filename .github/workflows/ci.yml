@@ -35,11 +35,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pnpm \
-            --filter "@scryvex/contracts..." \
-            --filter "@scryvex/server..." \
-            --filter "frontend..." \
-            install --frozen-lockfile
+          for i in 1 2 3; do
+            pnpm \
+              --filter "@scryvex/contracts..." \
+              --filter "@scryvex/server..." \
+              --filter "frontend..." \
+              install --frozen-lockfile && break || sleep 15
+          done
 
       - name: Build Contracts
         run: pnpm --filter @scryvex/contracts run build
