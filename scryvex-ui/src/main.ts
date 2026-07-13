@@ -1,22 +1,41 @@
 import './styles.css';
 
 const nativeOrigin = (import.meta.env.VITE_SCRYPTED_ORIGIN || window.location.origin).replace(/\/$/, '');
-const nativeUrl = (path = '/') => `${nativeOrigin}${path}`;
+const version = import.meta.env.VITE_SCRYVEX_VERSION || '4.0.0';
+const nativeUrl = `${nativeOrigin}/`;
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">
-    <header>
-      <div><p class="eyebrow">Scryvex Pro</p><h1>La interfaz nueva. Scrypted intacto.</h1></div>
-      <a class="native" href="${nativeUrl()}" target="_blank" rel="noreferrer">Abrir Scrypted original ↗</a>
-    </header>
-    <section class="hero">
-      <h2>Control moderno sin una segunda plataforma.</h2>
-      <p>Las cámaras, plugins, ajustes, credenciales y base de datos pertenecen exclusivamente a Scrypted. Esta capa nunca instala ni modifica plugins por cuenta propia.</p>
-    </section>
-    <section class="grid">
-      <article><h3>Plugins y cámaras</h3><p>Usa la tienda y los DeviceCreator originales. Aquí no se recrean formularios ni se pierden opciones de ONVIF, RTSP, Ring, Tapo, Wyze o EZVIZ.</p><a href="${nativeUrl()}" target="_blank" rel="noreferrer">Gestionar en Scrypted ↗</a></article>
-      <article><h3>Apple: remux solamente</h3><p>La futura auditoría de compatibilidad solo permitirá H.264/H.265 ya presentes en la cámara. Si el perfil requiere conversión, se mostrará como no compatible; no se transcodificará.</p><span class="status">Diagnóstico pendiente de Runtime</span></article>
-      <article><h3>HomeKit y Matter</h3><p>Se mantiene la integración original de Scrypted. Matter y HomeKit Secure Video se tratan como capacidades distintas y no se anuncian hasta que el Runtime las confirme.</p><span class="status">Sin afirmaciones de compatibilidad</span></article>
-    </section>
-    <section class="notice"><strong>Principio de seguridad:</strong> toda configuración real se abre en la UI original de Scrypted. Scryvex Pro se limita a presentación, enlaces y diagnósticos de solo lectura hasta que cada capacidad sea validada.</section>
+    <header class="glass"><div><strong>Scryvex Pro</strong><span>Visual layer · ${version}</span></div><a href="${nativeUrl}" target="_blank" rel="noreferrer">Abrir interfaz original ↗</a></header>
+    <iframe id="scrypted-console" title="Scryvex Pro Console" src="${nativeUrl}"></iframe>
   </main>`;
+
+const iframe = document.querySelector<HTMLIFrameElement>('#scrypted-console')!;
+const liquidGlass = `
+  :root { --scryvex-glass: rgba(18, 27, 46, .68); --scryvex-border: rgba(255,255,255,.18); }
+  body { background: radial-gradient(circle at top right, #234d9d 0, transparent 35%), #07101f !important; }
+  header, nav, aside, .toolbar, [role="toolbar"], [role="navigation"], button, input, select, textarea, dialog, [class*="card"], [class*="panel"] { backdrop-filter: blur(20px) saturate(145%); -webkit-backdrop-filter: blur(20px) saturate(145%); }
+  button, input, select, textarea, [class*="card"], [class*="panel"] { border-color: var(--scryvex-border) !important; border-radius: 14px !important; }
+  #scryvex-version-badge { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; padding: 7px 10px; border: 1px solid var(--scryvex-border); border-radius: 999px; background: var(--scryvex-glass); color: white; font: 600 12px system-ui; box-shadow: 0 10px 30px #0008; }
+`;
+
+function rebrand(doc: Document) {
+  if (!doc.head.querySelector('#scryvex-liquid-glass')) {
+    const style = doc.createElement('style'); style.id = 'scryvex-liquid-glass'; style.textContent = liquidGlass; doc.head.append(style);
+    const badge = doc.createElement('div'); badge.id = 'scryvex-version-badge'; badge.textContent = `Scryvex Pro ${version}`; doc.body.append(badge);
+  }
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = []; while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  for (const node of nodes) node.data = node.data.replace(/\bScrypted\b/g, 'Scryvex Pro');
+}
+
+iframe.addEventListener('load', () => {
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+    rebrand(doc);
+    new MutationObserver(() => rebrand(doc)).observe(doc.body, { childList: true, subtree: true });
+  } catch {
+    console.warn('Scryvex Pro requiere servirse desde el mismo origen que Scrypted para aplicar la capa visual.');
+  }
+});

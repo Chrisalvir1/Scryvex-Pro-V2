@@ -1,8 +1,8 @@
 # Scryvex Pro UI
 
-Companion UI for an unmodified Scrypted Runtime. It deliberately does not contain
-camera, plugin, HomeKit, Matter, or database logic. Configuration links open the
-native Scrypted UI, keeping every official plugin and setting authoritative.
+Visual wrapper for an unmodified Scrypted Runtime. It deliberately does not contain
+camera, plugin, HomeKit, Matter, or database logic. The original console runs in a
+same-origin iframe; the wrapper only applies the Scryvex Pro brand and Liquid Glass CSS.
 
-Set `VITE_SCRYPTED_ORIGIN` to the Scrypted server origin when this UI is hosted on
-a different origin. Build with `npm install` and `npm run build` using TypeScript 7.
+Serve it below `/scryvex-pro/` on the same origin as Scrypted. `VITE_SCRYPTED_VERSION`
+controls the visible release badge. Build with `npm install` and `npm run build` using TypeScript 7.
