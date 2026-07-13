@@ -1,6 +1,6 @@
 {
   "name": "scryvex-onvif",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ONVIF camera adapter for Scryvex Pro with dynamic RTSP negotiation.",
   "license": "Apache-2.0",
   "files": [
