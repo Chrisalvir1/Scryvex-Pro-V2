@@ -1,5 +1,5 @@
 name: "Scryvex Pro"
-version: "3.9.0"
+version: "3.9.1"
 slug: "scryvex_pro"
 description: "Runtime oficial de Scrypted y plugins oficiales en un volumen aislado de Scryvex Pro."
 url: "https://github.com/Chrisalvir1/Scryvex-Pro-V2"
@@ -21,7 +21,7 @@ usb: true
 uart: true
 video: true
 environment:
-  SCRYPTED_INSTALL_PLUGIN: "@scrypted/homeassistant"
+  SCRYPTED_INSTALL_PLUGIN: "scryvex-onvif"
   # This path belongs only to the scryvex_pro add-on slug.
   SCRYPTED_VOLUME: "/data/scryvex_pro/scrypted_data"
   SCRYPTED_NVR_VOLUME: "/data/scryvex_pro/scrypted_nvr"

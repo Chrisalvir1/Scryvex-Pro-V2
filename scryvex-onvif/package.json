@@ -1,0 +1,44 @@
+{
+  "name": "scryvex-onvif",
+  "version": "0.1.0",
+  "description": "ONVIF camera adapter for Scryvex Pro with dynamic RTSP negotiation.",
+  "license": "Apache-2.0",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "NODE_ENV=production scrypted-webpack",
+    "prepublishOnly": "NODE_ENV=production scrypted-webpack"
+  },
+  "keywords": [
+    "scrypted",
+    "plugin",
+    "onvif",
+    "hevc",
+    "scryvex"
+  ],
+  "scrypted": {
+    "name": "Scryvex ONVIF",
+    "type": "DeviceProvider",
+    "interfaces": [
+      "ScryptedSystemDevice",
+      "ScryptedDeviceCreator",
+      "DeviceProvider",
+      "DeviceCreator"
+    ],
+    "pluginDependencies": [
+      "@scrypted/homeassistant",
+      "@scrypted/prebuffer-mixin",
+      "@scrypted/snapshot"
+    ]
+  },
+  "dependencies": {
+    "@scrypted/sdk": "0.3.102",
+    "onvif": "0.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "terser-webpack-plugin": "5.3.11",
+    "typescript": "5.7.3"
+  }
+}
