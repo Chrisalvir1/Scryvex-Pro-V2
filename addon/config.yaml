@@ -1,18 +1,48 @@
 name: "Scryvex Pro"
 version: "3.9.0"
-slug: "scryvex_pro_final"
-description: "Plataforma universal de administración para Scrypted — versión alfa"
+slug: "scryvex_pro"
+description: "Runtime oficial de Scrypted y plugins oficiales en un volumen aislado de Scryvex Pro."
 url: "https://github.com/Chrisalvir1/Scryvex-Pro-V2"
-image: "ghcr.io/chrisalvir1/scryvex-pro-v2-{arch}"
+image: "ghcr.io/chrisalvir1/scryvex-pro-v2"
 arch:
   - aarch64
   - amd64
 init: false
 ingress: true
-ingress_port: 19090
+ingress_port: 11080
+ingress_stream: true
+panel_title: "Scryvex Pro"
 panel_icon: mdi:cctv
 hassio_api: true
 homeassistant_api: true
 host_network: true
-options: {}
-schema: {}
+gpio: true
+usb: true
+uart: true
+video: true
+environment:
+  SCRYPTED_INSTALL_PLUGIN: "@scrypted/homeassistant"
+  # This path belongs only to the scryvex_pro add-on slug.
+  SCRYPTED_VOLUME: "/data/scryvex_pro/scrypted_data"
+  SCRYPTED_NVR_VOLUME: "/data/scryvex_pro/scrypted_nvr"
+  SCRYPTED_ADMIN_ADDRESS: "172.30.32.2"
+  SCRYPTED_ADMIN_USERNAME: "homeassistant"
+  SCRYPTED_INSTALL_ENVIRONMENT: "ha"
+backup_exclude:
+  - '*/server/**'
+  - '*/scryvex_pro/scrypted_nvr/**'
+  - '*/scryvex_pro/scrypted_data/plugins/**'
+map:
+  - config:rw
+  - media:rw
+  - share:rw
+devices:
+  - /dev/mem
+  - /dev/dri/renderD128
+  - /dev/apex_0
+  - /dev/apex_1
+  - /dev/apex_2
+  - /dev/dri/card0
+  - /dev/vchiq
+  - /dev/video10
+  - /dev/video0

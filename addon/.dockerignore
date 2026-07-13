@@ -1,0 +1,4 @@
+# The add-on is distributed from Dockerfile.official. Do not send the old
+# experimental add-on implementation or its services to Docker BuildKit.
+*
+!Dockerfile.official

@@ -1,0 +1,14 @@
+# Scryvex Pro's Home Assistant distribution follows Scrypted's official
+# supported installation route. Official plugins are installed at runtime in
+# the isolated SCRYPTED_VOLUME, never copied from this repository.
+ARG BASE="noble-full"
+FROM ghcr.io/koush/scrypted-common:${BASE}
+
+WORKDIR /
+ARG SCRYPTED_INSTALL_VERSION="latest"
+RUN npx -y scrypted@latest install-server ${SCRYPTED_INSTALL_VERSION}
+
+WORKDIR /server
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
+ENV SCRYPTED_BASE_VERSION="20250101"
+CMD ["/bin/sh", "-c", "ulimit -c 0; exec npm --prefix /server exec scrypted-serve"]
